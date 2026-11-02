@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { loginAs, requestMagicLink } from "./helpers/auth";
+import { loginAs, openMagicLink, requestMagicLink } from "./helpers/auth";
 import { closeAdminDb, createOrgWithAdmin } from "./helpers/db";
 
 test.afterAll(closeAdminDb);
@@ -31,15 +31,48 @@ test("an unknown address gets the same answer as a known one", async ({ page }) 
   await expect(page.getByText("Check your email")).toBeVisible();
 });
 
+test("opening a magic link does not use it up; only the sign-in button does", async ({ page, request }) => {
+  const { admin } = await createOrgWithAdmin();
+  const link = await requestMagicLink(page, admin.email);
+
+  // A mail scanner prefetching the link (twice) gets the interstitial and burns nothing.
+  for (let i = 0; i < 2; i += 1) {
+    const prefetch = await request.get(link, { maxRedirects: 0 });
+    expect(prefetch.status()).toBe(200);
+    expect(prefetch.headers()["referrer-policy"]).toBe("no-referrer");
+    expect(prefetch.headers()["x-robots-tag"]).toBe("noindex, nofollow");
+    expect(prefetch.headers()["cache-control"]).toBe("no-store");
+    expect(await prefetch.text()).toContain("Sign in to Veradact");
+  }
+  expect((await page.context().cookies()).find((c) => c.name === "vd_session")).toBeUndefined();
+
+  await openMagicLink(page, link);
+  await expect(page).toHaveURL(/\/engagements$/);
+});
+
+test("a sign-in form posted from another origin is rejected", async ({ page, request }) => {
+  const { admin } = await createOrgWithAdmin();
+  const link = await requestMagicLink(page, admin.email);
+  const token = new URL(link).searchParams.get("token")!;
+  const forged = await request.post("/auth/verify", { form: { token }, headers: { origin: "https://evil.example" }, maxRedirects: 0 });
+  expect(forged.status()).toBe(303);
+  expect(forged.headers()["location"]).toMatch(/\/login\?error=link$/);
+  const crossSite = await request.post("/auth/verify", { form: { token }, headers: { origin: "null", "sec-fetch-site": "cross-site" }, maxRedirects: 0 });
+  expect(crossSite.headers()["location"]).toMatch(/\/login\?error=link$/);
+  // The token was not consumed.
+  await openMagicLink(page, link);
+  await expect(page).toHaveURL(/\/engagements$/);
+});
+
 test("a magic link works only once", async ({ page, browser }) => {
   const { admin } = await createOrgWithAdmin();
   const link = await requestMagicLink(page, admin.email);
-  await page.goto(link);
+  await openMagicLink(page, link);
   await expect(page).toHaveURL(/\/engagements$/);
 
   const other = await browser.newContext();
   const replay = await other.newPage();
-  await replay.goto(link);
+  await openMagicLink(replay, link);
   await expect(replay).toHaveURL(/\/login\?error=link$/);
   await expect(replay.getByText("invalid, has expired or was already used")).toBeVisible();
   expect((await other.cookies()).find((c) => c.name === "vd_session")).toBeUndefined();

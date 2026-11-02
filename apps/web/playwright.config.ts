@@ -28,8 +28,9 @@ export default defineConfig({
     command: "pnpm dev",
     cwd: webDir,
     url: `${baseURL}/login`,
-    // Real SMTP delivery into Mailpit, which the helpers read.
-    env: { EMAIL_PROVIDER: "smtp" },
+    // Real SMTP delivery into Mailpit, which the helpers read. Extraction uses the fixture model
+    // client (fixtures/, no API key, nothing sent anywhere).
+    env: { EMAIL_PROVIDER: "smtp", MODEL_CLIENT: "fixture" },
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },

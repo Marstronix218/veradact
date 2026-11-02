@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { getCurrentUser } from "@veradact/core";
+import { getCurrentUser, unreadCount } from "@veradact/core";
+import { withTenant } from "@veradact/db";
 import { Button } from "@/components";
 import { getDb } from "@/lib/db";
 import { requireAuth } from "@/lib/session";
@@ -17,6 +18,8 @@ const NAV: NavItem[] = [
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const auth = await requireAuth();
   const user = await getCurrentUser(getDb(), auth);
+  const unread = await withTenant(getDb(), { orgId: auth.orgId, userId: auth.userId }, (tx) => unreadCount(tx, auth.userId));
+  const nav = NAV.map((item) => (item.href === "/notifications" ? { ...item, badge: unread } : item));
 
   return (
     <div className="min-h-screen">
@@ -25,7 +28,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           <Link href="/engagements" className="text-base font-semibold tracking-tight">
             Veradact
           </Link>
-          <NavLinks items={NAV} />
+          <NavLinks items={nav} />
           <div className="ml-auto flex items-center gap-3">
             <span className="hidden text-sm text-zinc-600 sm:inline" data-testid="current-user-email">
               {user.email}

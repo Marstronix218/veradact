@@ -1,4 +1,4 @@
-import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from "react";
+import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
 
 const FIELD =
   "block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-xs placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200 disabled:bg-zinc-50 disabled:text-zinc-500";
@@ -69,5 +69,17 @@ export function Checkbox({ label, hint, id, name, className = "", ...props }: Ch
         {hint ? <p className="text-xs text-zinc-500">{hint}</p> : null}
       </div>
     </div>
+  );
+}
+
+export type TextareaProps = TextareaHTMLAttributes<HTMLTextAreaElement> & FieldProps;
+
+/** Multi-line text input with an optional label and hint. `id` defaults to `name`. */
+export function Textarea({ label, hint, id, name, className = "", ...props }: TextareaProps) {
+  const inputId = id ?? name;
+  return (
+    <Field id={inputId} label={label} hint={hint}>
+      <textarea id={inputId} name={name} className={`${FIELD} ${className}`} {...props} />
+    </Field>
   );
 }

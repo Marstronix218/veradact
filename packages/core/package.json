@@ -17,8 +17,10 @@
   },
   "dependencies": {
     "@date-fns/tz": "^1.5.0",
+    "@veradact/ai": "workspace:*",
     "@veradact/db": "workspace:*",
     "@veradact/email": "workspace:*",
+    "@veradact/ingest": "workspace:*",
     "date-fns": "^4.4.0",
     "drizzle-orm": "^0.45.4",
     "zod": "^4.6.7"

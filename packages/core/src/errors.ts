@@ -157,3 +157,41 @@ export class ConsentBlockedError extends DomainError {
     this.explanation = result.explanation;
   }
 }
+
+// ---------------------------------------------------------------------------------------------
+// AI extraction and the review queue (ARCHITECTURE §9.3, §9.4).
+
+/**
+ * AI is switched off for the org or the engagement (CLAUDE.md invariant 9). Thrown by
+ * `runExtraction` inside the tenant transaction before any model client is constructed.
+ */
+export class AiDisabledError extends CoreError {
+  readonly scope: "org" | "engagement";
+
+  constructor(scope: "org" | "engagement") {
+    super(
+      "ai_disabled",
+      scope === "org"
+        ? "AI suggestions are turned off for your organization. No source text was sent to any model provider."
+        : "AI suggestions are turned off for this engagement. No source text was sent to any model provider.",
+    );
+    this.scope = scope;
+  }
+}
+
+export const REVIEW_ERROR_MESSAGES = {
+  candidate_not_found: "That suggestion does not exist in this engagement.",
+  candidate_decided: "That suggestion has already been accepted or rejected.",
+  revision_kind_immutable: "A revision keeps the kind of the item it revises.",
+} as const;
+
+export type ReviewErrorCode = keyof typeof REVIEW_ERROR_MESSAGES;
+
+/** A review-queue action was rejected (nothing was written). */
+export class ReviewError extends CoreError {
+  declare readonly code: ReviewErrorCode;
+
+  constructor(code: ReviewErrorCode) {
+    super(code, REVIEW_ERROR_MESSAGES[code]);
+  }
+}

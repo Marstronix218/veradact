@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { Badge, EmptyState, PageHeader, Table, TBody, Td, Th, THead, Tr } from "@/components";
+import Link from "next/link";
+import { Badge, buttonClasses, EmptyState, PageHeader, Table, TBody, Td, Th, THead, Tr } from "@/components";
 import { withAuthTenant } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Engagements" };
@@ -20,9 +21,12 @@ export default async function EngagementsPage() {
     }),
   );
 
-  // NEW ENGAGEMENT SLOT: render the "New engagement" form (wired to core's createEngagement
-  // command) here. It appears in the page header and in the empty state.
-  const newEngagement = null;
+  // The form lives at /engagements/new (core's createEngagement command).
+  const newEngagement = (
+    <Link href="/engagements/new" className={buttonClasses()}>
+      New engagement
+    </Link>
+  );
 
   return (
     <>
@@ -52,7 +56,11 @@ export default async function EngagementsPage() {
           <TBody>
             {engagements.map((e) => (
               <Tr key={e.id}>
-                <Td className="font-medium text-zinc-900">{e.name}</Td>
+                <Td className="font-medium text-zinc-900">
+                  <Link href={`/engagements/${e.id}`} className="hover:underline">
+                    {e.name}
+                  </Link>
+                </Td>
                 <Td>{e.clientName}</Td>
                 <Td>
                   <span className="font-mono text-xs">{e.shortCode}</span>
