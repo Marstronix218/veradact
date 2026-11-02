@@ -1,0 +1,133 @@
+1
+00:00:01,200 --> 00:00:07,360
+Tomás Ferreira: Thanks everyone. This is the scope call for the discharge summary
+drafting assistant at Calder Valley.
+
+2
+00:00:07,760 --> 00:00:17,520
+Amara Okafor: Let me frame the problem for the group. Nurses spend roughly forty
+minutes per patient on discharge paperwork, and that is time away from
+the bedside.
+
+3
+00:00:18,420 --> 00:00:26,020
+Joaquin Reyes: And it is the same facts typed three times, in the chart, in the summary
+and in the patient instructions.
+
+4
+00:00:26,620 --> 00:00:32,780
+Tomás Ferreira: So the assistant drafts and the nurse reviews. Let's start with privacy
+since it shapes everything.
+
+5
+00:00:33,980 --> 00:00:39,060
+Beth Calloway: The rule is simple. Nothing containing patient identifiers can leave the
+hospital network.
+
+6
+00:00:39,560 --> 00:00:44,280
+Beth Calloway: That includes logs, crash reports and any telemetry your tooling sends
+home.
+
+7
+00:00:45,080 --> 00:00:49,080
+Tomás Ferreira: Understood, we will keep that in mind for the design.
+
+8
+00:00:50,480 --> 00:00:57,360
+Amara Okafor: On review, a clinician must review and sign every draft before it enters
+the chart. No auto-filing, ever.
+
+9
+00:00:57,760 --> 00:01:03,560
+Joaquin Reyes: The nurse signs for the nursing content and the physician signs for the
+medical content.
+
+10
+00:01:04,460 --> 00:01:08,460
+Tomás Ferreira: So two signatures on some drafts. We can model that.
+
+11
+00:01:09,060 --> 00:01:10,900
+Tomás Ferreira: Where do we start?
+
+12
+00:01:12,100 --> 00:01:18,260
+Amara Okafor: We will begin on the cardiac step-down unit only. It has the most
+predictable discharge patterns.
+
+13
+00:01:18,760 --> 00:01:22,400
+Joaquin Reyes: Thirty beds, about four discharges a day on average.
+
+14
+00:01:23,200 --> 00:01:26,840
+Tomás Ferreira: And what are we assuming for the EHR integration?
+
+15
+00:01:28,240 --> 00:01:35,840
+Amara Okafor: We are assuming the EHR integration team can give you read access to
+discharge orders by the end of October.
+
+16
+00:01:36,240 --> 00:01:39,160
+Beth Calloway: That is optimistic. Their queue is long.
+
+17
+00:01:40,060 --> 00:01:42,260
+Amara Okafor: I will push on it.
+
+18
+00:01:42,860 --> 00:01:50,100
+Joaquin Reyes: One more thing on format. Drafts must follow the discharge template
+version 4, because the auditors check against it.
+
+19
+00:01:51,300 --> 00:01:53,140
+Tomás Ferreira: Template version 4, noted.
+
+20
+00:01:53,640 --> 00:02:00,520
+Amara Okafor: Someone asked if we could also draft transfer summaries. Maybe later,
+but nobody has signed up for that.
+
+21
+00:02:01,320 --> 00:02:04,240
+Tomás Ferreira: Understood, we will not discuss it today.
+
+22
+00:02:05,640 --> 00:02:10,720
+Beth Calloway: Can I ask what happens when the assistant is not sure about something?
+
+23
+00:02:11,120 --> 00:02:16,200
+Tomás Ferreira: Good question. We can look at how uncertain fields are shown during
+design.
+
+24
+00:02:17,100 --> 00:02:21,100
+Joaquin Reyes: I would like to see that before we go further.
+
+25
+00:02:21,700 --> 00:02:23,300
+Beth Calloway: Same here.
+
+26
+00:02:24,500 --> 00:02:29,940
+Amara Okafor: Then I think we have the scope. Tomás, please send us the written list.
+
+27
+00:02:30,440 --> 00:02:33,000
+Tomás Ferreira: Will do by Monday. Thanks everyone.
+
+28
+00:02:33,800 --> 00:02:35,400
+Beth Calloway: Thanks.
+
+29
+00:02:36,800 --> 00:02:38,400
+Joaquin Reyes: Thank you.
+
+30
+00:02:38,800 --> 00:02:40,400
+Amara Okafor: Thank you all.

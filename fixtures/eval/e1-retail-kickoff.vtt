@@ -1,0 +1,135 @@
+WEBVTT
+
+9b2d7e41-5c0a-4f68-8d13-e47a1f6c20b9/1-0
+00:00:01.200 --> 00:00:08.800
+<v Priya Raman>Thanks for joining. Today I want to capture what Wexcombe needs from the
+replenishment assistant before we write any code.</v>
+
+9b2d7e41-5c0a-4f68-8d13-e47a1f6c20b9/2-0
+00:00:09.200 --> 00:00:16.800
+<v Gareth Lindqvist>Sure. Quick background, we run ninety-four stores and replenishment
+orders are placed by the store managers from a weekly report.</v>
+
+9b2d7e41-5c0a-4f68-8d13-e47a1f6c20b9/3-0
+00:00:17.700 --> 00:00:25.660
+<v Noor Haddad>And that is the problem. Managers spend most of Monday building orders,
+and stockouts on fast sellers still happen by Wednesday.</v>
+
+9b2d7e41-5c0a-4f68-8d13-e47a1f6c20b9/4-0
+00:00:26.260 --> 00:00:33.140
+<v Priya Raman>Okay, so manual order building and stockouts. Let's move to constraints.
+Where does the data have to live?</v>
+
+9b2d7e41-5c0a-4f68-8d13-e47a1f6c20b9/5-0
+00:00:34.340 --> 00:00:40.500
+<v Gareth Lindqvist>The assistant must run in our Frankfurt cloud region. Store sales data
+cannot leave the EU.</v>
+
+9b2d7e41-5c0a-4f68-8d13-e47a1f6c20b9/6-0
+00:00:41.000 --> 00:00:48.600
+<v Noor Haddad>Also, orders have to be locked by 14:00 on the day before delivery,
+because the warehouse starts picking at 15:00.</v>
+
+9b2d7e41-5c0a-4f68-8d13-e47a1f6c20b9/7-0
+00:00:49.400 --> 00:00:54.480
+<v Priya Raman>Locked by 14:00, got it. What are we assuming about the inventory data?</v>
+
+9b2d7e41-5c0a-4f68-8d13-e47a1f6c20b9/8-0
+00:00:55.880 --> 00:01:01.680
+<v Gareth Lindqvist>We assume the inventory feed is refreshed nightly and is accurate to
+within two percent.</v>
+
+9b2d7e41-5c0a-4f68-8d13-e47a1f6c20b9/9-0
+00:01:02.080 --> 00:01:06.800
+<v Noor Haddad>I would not bet on two percent for the smaller stores, honestly.</v>
+
+9b2d7e41-5c0a-4f68-8d13-e47a1f6c20b9/10-0
+00:01:07.700 --> 00:01:10.260
+<v Gareth Lindqvist>We will check that during discovery.</v>
+
+9b2d7e41-5c0a-4f68-8d13-e47a1f6c20b9/11-0
+00:01:10.860 --> 00:01:13.060
+<v Priya Raman>Fair. Where do we start?</v>
+
+9b2d7e41-5c0a-4f68-8d13-e47a1f6c20b9/12-0
+00:01:14.260 --> 00:01:20.060
+<v Gareth Lindqvist>We decided last week to pilot with the twelve stores in the Rhine-Main
+region first.</v>
+
+9b2d7e41-5c0a-4f68-8d13-e47a1f6c20b9/13-0
+00:01:20.560 --> 00:01:24.920
+<v Noor Haddad>Agreed. Those managers are the most open to trying something new.</v>
+
+9b2d7e41-5c0a-4f68-8d13-e47a1f6c20b9/14-0
+00:01:25.720 --> 00:01:30.440
+<v Priya Raman>Now, what does good look like for a store manager using this?</v>
+
+9b2d7e41-5c0a-4f68-8d13-e47a1f6c20b9/15-0
+00:01:31.840 --> 00:01:37.640
+<v Noor Haddad>Managers must be able to edit any suggested order line before they
+submit the order.</v>
+
+9b2d7e41-5c0a-4f68-8d13-e47a1f6c20b9/16-0
+00:01:38.040 --> 00:01:44.200
+<v Gareth Lindqvist>And every suggested line needs a short reason, like promotion next week
+or sales trending up.</v>
+
+9b2d7e41-5c0a-4f68-8d13-e47a1f6c20b9/17-0
+00:01:45.100 --> 00:01:47.300
+<v Priya Raman>Reasons on every line, noted.</v>
+
+9b2d7e41-5c0a-4f68-8d13-e47a1f6c20b9/18-0
+00:01:47.900 --> 00:01:52.980
+<v Noor Haddad>We also want a weekly report of how often managers changed the
+suggestions.</v>
+
+9b2d7e41-5c0a-4f68-8d13-e47a1f6c20b9/19-0
+00:01:54.180 --> 00:01:57.100
+<v Priya Raman>Understood. Anything else on the wish list?</v>
+
+9b2d7e41-5c0a-4f68-8d13-e47a1f6c20b9/20-0
+00:01:57.600 --> 00:02:04.840
+<v Gareth Lindqvist>Someone mentioned we could eventually add weather data to the forecasts,
+but that is only an idea right now.</v>
+
+9b2d7e41-5c0a-4f68-8d13-e47a1f6c20b9/21-0
+00:02:05.640 --> 00:02:08.200
+<v Noor Haddad>Right, nobody has committed to that.</v>
+
+9b2d7e41-5c0a-4f68-8d13-e47a1f6c20b9/22-0
+00:02:09.600 --> 00:02:15.400
+<v Priya Raman>Good, I will leave it off the list. Let me read back what I have.</v>
+
+9b2d7e41-5c0a-4f68-8d13-e47a1f6c20b9/23-0
+00:02:15.800 --> 00:02:22.680
+<v Priya Raman>Manual order building and stockouts are the problem. EU data residency
+and the order cutoff time are constraints.</v>
+
+9b2d7e41-5c0a-4f68-8d13-e47a1f6c20b9/24-0
+00:02:23.580 --> 00:02:29.020
+<v Priya Raman>The inventory feed accuracy is an assumption, and we start in the
+Rhine-Main stores.</v>
+
+9b2d7e41-5c0a-4f68-8d13-e47a1f6c20b9/25-0
+00:02:29.620 --> 00:02:31.820
+<v Gareth Lindqvist>That matches what I said.</v>
+
+9b2d7e41-5c0a-4f68-8d13-e47a1f6c20b9/26-0
+00:02:33.020 --> 00:02:36.660
+<v Noor Haddad>And editable lines with reasons, plus the weekly report.</v>
+
+9b2d7e41-5c0a-4f68-8d13-e47a1f6c20b9/27-0
+00:02:37.160 --> 00:02:41.880
+<v Priya Raman>Right. I will send the written list for your confirmation by Friday.</v>
+
+9b2d7e41-5c0a-4f68-8d13-e47a1f6c20b9/28-0
+00:02:42.680 --> 00:02:44.280
+<v Gareth Lindqvist>Sounds good.</v>
+
+9b2d7e41-5c0a-4f68-8d13-e47a1f6c20b9/29-0
+00:02:45.680 --> 00:02:47.280
+<v Noor Haddad>Thanks, Priya.</v>
+
+9b2d7e41-5c0a-4f68-8d13-e47a1f6c20b9/30-0
+00:02:47.680 --> 00:02:49.280
+<v Priya Raman>Thank you both.</v>

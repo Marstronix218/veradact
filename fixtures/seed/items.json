@@ -1,0 +1,313 @@
+[
+  {
+    "key": "k1",
+    "kind": "problem",
+    "statement": "Halvorsen dispatchers rebuild each day's routes by hand every morning, about two and a half hours per dispatcher.",
+    "source": "01-kickoff.vtt",
+    "quote": "Every morning my dispatchers rebuild the day's routes by hand.",
+    "speaker": "Dana Whitcombe",
+    "depends_on": [],
+    "revises": null,
+    "superseded_by": null,
+    "demo_status": "confirmed"
+  },
+  {
+    "key": "k2",
+    "kind": "problem",
+    "statement": "About 11% of Columbus deliveries last quarter arrived outside the customer window, mostly because of poor morning plans.",
+    "source": "01-kickoff.vtt",
+    "quote": "Last quarter about eleven percent of our deliveries out of Columbus arrived outside the customer window",
+    "speaker": "Dana Whitcombe",
+    "depends_on": [],
+    "revises": null,
+    "superseded_by": null,
+    "demo_status": "confirmed"
+  },
+  {
+    "key": "k3",
+    "kind": "problem",
+    "statement": "Halvorsen customer service has no proactive way to warn consignees when a delivery will miss its window.",
+    "source": null,
+    "quote": null,
+    "speaker": null,
+    "depends_on": [],
+    "revises": null,
+    "superseded_by": null,
+    "demo_status": "pending"
+  },
+  {
+    "key": "k4",
+    "kind": "constraint",
+    "statement": "The system must run on-prem in Halvorsen's Columbus data center or inside Halvorsen's own Azure tenant, never in a vendor-hosted multi-tenant cloud.",
+    "source": "01-kickoff.vtt",
+    "quote": "this has to run either on-prem in our Columbus data center or inside our own Azure tenant",
+    "speaker": "Marcus Oyelaran",
+    "depends_on": [],
+    "revises": null,
+    "superseded_by": null,
+    "demo_status": "confirmed"
+  },
+  {
+    "key": "k5",
+    "kind": "constraint",
+    "statement": "No driver location data may leave the United States for processing, backup or support access.",
+    "source": "01-kickoff.vtt",
+    "quote": "no driver location data leaves the United States",
+    "speaker": "Marcus Oyelaran",
+    "depends_on": [],
+    "revises": null,
+    "superseded_by": null,
+    "demo_status": "confirmed"
+  },
+  {
+    "key": "k6",
+    "kind": "constraint",
+    "statement": "FleetDesk API usage is capped at 60 requests per minute per tenant, shared with the billing integration and the customer portal.",
+    "source": "01-kickoff.vtt",
+    "quote": "sixty requests a minute per tenant on the standard plan",
+    "speaker": "Marcus Oyelaran",
+    "depends_on": [],
+    "revises": null,
+    "superseded_by": null,
+    "demo_status": "confirmed"
+  },
+  {
+    "key": "k7",
+    "kind": "constraint",
+    "statement": "Planned driver shifts must not exceed eleven hours door to door, breaks included, under the union agreement.",
+    "source": "01-kickoff.vtt",
+    "quote": "A driver's shift cannot be longer than eleven hours door to door",
+    "speaker": "Lena Sorensen",
+    "depends_on": [],
+    "revises": null,
+    "superseded_by": null,
+    "demo_status": "confirmed"
+  },
+  {
+    "key": "k8",
+    "kind": "constraint",
+    "statement": "Only Halvorsen IT can approve new integrations, and Quillfield may not connect to any new system without written approval.",
+    "source": "02-security-review.md",
+    "quote": "Only Halvorsen IT can approve new integrations",
+    "speaker": "Marcus",
+    "depends_on": [],
+    "revises": null,
+    "superseded_by": null,
+    "demo_status": "confirmed"
+  },
+  {
+    "key": "k9",
+    "kind": "assumption",
+    "statement": "FleetDesk exposes a REST API for loads, stops and driver assignments.",
+    "source": "01-kickoff.vtt",
+    "quote": "I am assuming FleetDesk exposes a REST API for loads and driver assignments",
+    "speaker": "Tomás Ferreira",
+    "depends_on": [],
+    "revises": null,
+    "superseded_by": null,
+    "demo_status": "confirmed"
+  },
+  {
+    "key": "k10",
+    "kind": "assumption",
+    "statement": "All Halvorsen drivers carry Android phones, so the driver app can ship as a single Android build.",
+    "source": "01-kickoff.vtt",
+    "quote": "all your drivers carry Android phones, since that keeps the mobile app to a single build",
+    "speaker": "Priya Raman",
+    "depends_on": [],
+    "revises": null,
+    "superseded_by": null,
+    "demo_status": "disputed",
+    "followup": {
+      "source": "03-scope-call.srt",
+      "quote": "About fifteen percent of our owner-operator drivers carry phones that are not Android",
+      "speaker": "Lena Sorensen"
+    }
+  },
+  {
+    "key": "k11",
+    "kind": "assumption",
+    "statement": "The Dayton cross-dock opens in October and adds about forty loads a day to the board.",
+    "source": "01-kickoff.vtt",
+    "quote": "assume the Dayton cross-dock opens in October, that adds about forty loads a day to the board",
+    "speaker": "Lena Sorensen",
+    "depends_on": [],
+    "revises": null,
+    "superseded_by": null,
+    "demo_status": "withdrawn",
+    "followup": {
+      "source": "03-scope-call.srt",
+      "quote": "Ignore what I said about October. The Dayton cross-dock slipped to next spring.",
+      "speaker": "Lena Sorensen"
+    }
+  },
+  {
+    "key": "k12",
+    "kind": "assumption",
+    "statement": "Halvorsen will provide a FleetDesk sandbox tenant with anonymized Columbus data before the pilot build starts.",
+    "source": null,
+    "quote": null,
+    "speaker": null,
+    "depends_on": [],
+    "revises": null,
+    "superseded_by": null,
+    "demo_status": "pending"
+  },
+  {
+    "key": "k13",
+    "kind": "decision",
+    "statement": "The pilot starts at the Columbus depot and expands to Dayton only if the pilot numbers hold.",
+    "source": "01-kickoff.vtt",
+    "quote": "we pilot at the Columbus depot first and only expand to Dayton if the numbers hold",
+    "speaker": "Dana Whitcombe",
+    "depends_on": [],
+    "revises": null,
+    "superseded_by": null,
+    "demo_status": "confirmed"
+  },
+  {
+    "key": "k14",
+    "kind": "decision",
+    "statement": "Phase one uses read-only access to FleetDesk, with no write-back of assignments.",
+    "source": "01-kickoff.vtt",
+    "quote": "phase one uses read-only access to FleetDesk and we do not write anything back",
+    "speaker": "Priya Raman",
+    "depends_on": [],
+    "revises": null,
+    "superseded_by": null,
+    "demo_status": "disputed",
+    "followup": {
+      "source": "03-scope-call.srt",
+      "quote": "We never agreed that read-only access was enough for the pilot",
+      "speaker": "Marcus Oyelaran"
+    }
+  },
+  {
+    "key": "k15",
+    "kind": "decision",
+    "statement": "Loads are pulled by polling the FleetDesk REST API every five minutes rather than through a file drop.",
+    "source": "03-scope-call.srt",
+    "quote": "we will poll the FleetDesk REST API every five minutes instead of building a file drop",
+    "speaker": "Tomás Ferreira",
+    "depends_on": [
+      "k9"
+    ],
+    "revises": null,
+    "superseded_by": null,
+    "demo_status": "pending"
+  },
+  {
+    "key": "k16",
+    "kind": "decision",
+    "statement": "The nightly planning run starts at 4:15 a.m. local time and has until 5:30 a.m. to finish.",
+    "source": "01-kickoff.vtt",
+    "quote": "the nightly planning run starts at 4:15 a.m. and has until 5:30 a.m. to finish",
+    "speaker": "Priya Raman",
+    "depends_on": [
+      "k18"
+    ],
+    "revises": null,
+    "superseded_by": null,
+    "demo_status": "needs_review"
+  },
+  {
+    "key": "k17",
+    "kind": "requirement",
+    "statement": "A dispatcher can override any route suggestion, with no exceptions and no extra approval.",
+    "source": "01-kickoff.vtt",
+    "quote": "a dispatcher can override any suggestion, with no exceptions and no extra approval",
+    "speaker": "Lena Sorensen",
+    "depends_on": [],
+    "revises": null,
+    "superseded_by": null,
+    "demo_status": "confirmed"
+  },
+  {
+    "key": "k18",
+    "kind": "requirement",
+    "statement": "Route suggestions are ready by 5:30 a.m. local time.",
+    "source": "01-kickoff.vtt",
+    "quote": "Route suggestions need to be ready by 5:30 a.m. local time",
+    "speaker": "Lena Sorensen",
+    "depends_on": [],
+    "revises": null,
+    "superseded_by": "k19",
+    "demo_status": "superseded"
+  },
+  {
+    "key": "k19",
+    "kind": "requirement",
+    "statement": "Route suggestions are ready by 5:00 a.m. local time, because the Columbus early shift now starts at 5:30 a.m.",
+    "source": "03-scope-call.srt",
+    "quote": "route suggestions need to be ready by 5:00 a.m. instead of 5:30 a.m.",
+    "speaker": "Lena Sorensen",
+    "depends_on": [],
+    "revises": "k18",
+    "superseded_by": null,
+    "demo_status": "revised_after_confirmation"
+  },
+  {
+    "key": "k20",
+    "kind": "requirement",
+    "statement": "Every dispatcher override is recorded in an audit trail with who changed what, when, and the stated reason.",
+    "source": "01-kickoff.vtt",
+    "quote": "Every override needs an audit trail, who changed what, when, and the reason they gave",
+    "speaker": "Dana Whitcombe",
+    "depends_on": [
+      "k17"
+    ],
+    "revises": null,
+    "superseded_by": null,
+    "demo_status": "confirmed"
+  },
+  {
+    "key": "k21",
+    "kind": "requirement",
+    "statement": "SSO through Halvorsen's identity provider is wanted after the pilot, not in phase one.",
+    "source": "01-kickoff.vtt",
+    "quote": "we want SSO through our identity provider at some point, but not for the pilot",
+    "speaker": "Marcus Oyelaran",
+    "depends_on": [],
+    "revises": null,
+    "superseded_by": "k22",
+    "demo_status": "superseded"
+  },
+  {
+    "key": "k22",
+    "kind": "requirement",
+    "statement": "SSO through Halvorsen's identity provider is required before go-live.",
+    "source": "02-security-review.md",
+    "quote": "Security will not sign off on go-live with local accounts, so we need SSO through our identity provider before go-live",
+    "speaker": "Marcus",
+    "depends_on": [],
+    "revises": "k21",
+    "superseded_by": null,
+    "demo_status": "revised_after_confirmation"
+  },
+  {
+    "key": "k23",
+    "kind": "requirement",
+    "statement": "If the planning run is late, dispatchers see the previous day's plan with a clear warning instead of an empty screen.",
+    "source": "01-kickoff.vtt",
+    "quote": "If the planning run is late, dispatchers should see yesterday's plan with a clear warning instead of an empty screen",
+    "speaker": "Lena Sorensen",
+    "depends_on": [
+      "k18"
+    ],
+    "revises": null,
+    "superseded_by": null,
+    "demo_status": "needs_review"
+  },
+  {
+    "key": "k24",
+    "kind": "requirement",
+    "statement": "Dispatchers can pin a driver to a specific load, and the planner must plan around the pin.",
+    "source": "03-scope-call.srt",
+    "quote": "Dispatchers need to pin a driver to a specific load, and the assistant has to plan around the pin",
+    "speaker": "Lena Sorensen",
+    "depends_on": [],
+    "revises": null,
+    "superseded_by": null,
+    "demo_status": "pending"
+  }
+]

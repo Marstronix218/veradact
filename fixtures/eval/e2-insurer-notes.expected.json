@@ -1,0 +1,45 @@
+{
+  "source": "e2-insurer-notes.md",
+  "expected": [
+    {
+      "kind": "problem",
+      "quote": "Adjusters spend about 40 percent of their day reading and re-keying first notices of loss",
+      "statement": "Adjusters spend about 40 percent of their day reading and re-keying first notices of loss."
+    },
+    {
+      "kind": "constraint",
+      "quote": "Claims data may not be sent to any model endpoint outside the United States",
+      "statement": "Claims data may not be sent to any model endpoint outside the United States."
+    },
+    {
+      "kind": "constraint",
+      "quote": "Every system that touches a claim file must be logged for the state regulator audit",
+      "statement": "Every system that touches a claim file must be logged for the state regulator audit."
+    },
+    {
+      "kind": "constraint",
+      "quote": "Claims systems are under a change freeze from Nov 20 to Jan 6, so no deployments in that window",
+      "statement": "No deployments to claims systems between Nov 20 and Jan 6 because of the change freeze."
+    },
+    {
+      "kind": "assumption",
+      "quote": "We assume the policy admin system exposes claim status through a nightly export",
+      "statement": "The policy admin system exposes claim status through a nightly export."
+    },
+    {
+      "kind": "decision",
+      "quote": "Start with auto glass and minor property claims only",
+      "statement": "The assistant starts with auto glass and minor property claims only."
+    },
+    {
+      "kind": "requirement",
+      "quote": "Adjusters can reject any triage suggestion and see why it was suggested",
+      "statement": "Adjusters can reject any triage suggestion and see the reason it was suggested."
+    },
+    {
+      "kind": "requirement",
+      "quote": "Triage must complete within 2 minutes of first notice of loss",
+      "statement": "Triage completes within 2 minutes of first notice of loss."
+    }
+  ]
+}

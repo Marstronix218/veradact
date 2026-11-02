@@ -1,0 +1,45 @@
+{
+  "source": "e1-retail-kickoff.vtt",
+  "expected": [
+    {
+      "kind": "problem",
+      "quote": "Managers spend most of Monday building orders, and stockouts on fast sellers still happen by Wednesday",
+      "statement": "Store managers spend most of Monday manually building replenishment orders, and fast sellers still stock out by Wednesday."
+    },
+    {
+      "kind": "constraint",
+      "quote": "Store sales data cannot leave the EU",
+      "statement": "Store sales data must stay in the EU, so the assistant runs in the Frankfurt cloud region."
+    },
+    {
+      "kind": "constraint",
+      "quote": "orders have to be locked by 14:00 on the day before delivery",
+      "statement": "Replenishment orders must be locked by 14:00 on the day before delivery."
+    },
+    {
+      "kind": "assumption",
+      "quote": "the inventory feed is refreshed nightly and is accurate to within two percent",
+      "statement": "The inventory feed is refreshed nightly and accurate to within two percent."
+    },
+    {
+      "kind": "decision",
+      "quote": "to pilot with the twelve stores in the Rhine-Main region first",
+      "statement": "The pilot starts with the twelve stores in the Rhine-Main region."
+    },
+    {
+      "kind": "requirement",
+      "quote": "Managers must be able to edit any suggested order line before they submit the order",
+      "statement": "Store managers can edit any suggested order line before submitting the order."
+    },
+    {
+      "kind": "requirement",
+      "quote": "every suggested line needs a short reason, like promotion next week or sales trending up",
+      "statement": "Every suggested order line shows a short reason."
+    },
+    {
+      "kind": "requirement",
+      "quote": "a weekly report of how often managers changed the suggestions",
+      "statement": "A weekly report shows how often managers changed the suggestions."
+    }
+  ]
+}

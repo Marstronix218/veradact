@@ -1,0 +1,35 @@
+{
+  "source": "e3-hospital-scope.srt",
+  "expected": [
+    {
+      "kind": "problem",
+      "quote": "Nurses spend roughly forty minutes per patient on discharge paperwork",
+      "statement": "Nurses spend roughly forty minutes per patient on discharge paperwork."
+    },
+    {
+      "kind": "constraint",
+      "quote": "Nothing containing patient identifiers can leave the hospital network",
+      "statement": "Nothing containing patient identifiers may leave the hospital network."
+    },
+    {
+      "kind": "requirement",
+      "quote": "a clinician must review and sign every draft before it enters the chart",
+      "statement": "A clinician must review and sign every draft before it enters the chart."
+    },
+    {
+      "kind": "decision",
+      "quote": "We will begin on the cardiac step-down unit only",
+      "statement": "The pilot begins on the cardiac step-down unit only."
+    },
+    {
+      "kind": "assumption",
+      "quote": "the EHR integration team can give you read access to discharge orders by the end of October",
+      "statement": "The EHR integration team can provide read access to discharge orders by the end of October."
+    },
+    {
+      "kind": "requirement",
+      "quote": "Drafts must follow the discharge template version 4, because the auditors check against it",
+      "statement": "Drafts follow discharge template version 4."
+    }
+  ]
+}

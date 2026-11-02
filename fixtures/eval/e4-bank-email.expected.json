@@ -1,0 +1,35 @@
+{
+  "source": "e4-bank-email.txt",
+  "expected": [
+    {
+      "kind": "problem",
+      "quote": "Onboarding a new business account takes our analysts about three days because every document is checked by hand",
+      "statement": "Onboarding a new business account takes analysts about three days because every document is checked by hand."
+    },
+    {
+      "kind": "constraint",
+      "quote": "all customer documents must stay inside our private cloud, with no third party OCR service involved",
+      "statement": "Customer documents must stay inside Fennimore's private cloud with no third party OCR service."
+    },
+    {
+      "kind": "decision",
+      "quote": "we agreed to start with sole proprietor and LLC applications only",
+      "statement": "The first release covers sole proprietor and LLC applications only."
+    },
+    {
+      "kind": "assumption",
+      "quote": "We are assuming the document scanner already outputs PDFs at 300 dpi",
+      "statement": "The document scanner already outputs PDFs at 300 dpi."
+    },
+    {
+      "kind": "requirement",
+      "quote": "The assistant must flag any document whose beneficial owner is not listed in the application",
+      "statement": "The assistant flags any document whose beneficial owner is not listed in the application."
+    },
+    {
+      "kind": "requirement",
+      "quote": "Every analyst decision must be recorded with a timestamp and the analyst's ID",
+      "statement": "Every analyst decision is recorded with a timestamp and the analyst ID."
+    }
+  ]
+}

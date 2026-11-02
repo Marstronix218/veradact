@@ -1,0 +1,73 @@
+{
+  "_notes": [
+    "candidates[5]: KIND_MISMATCH - expected kind is requirement; the model labelled the recording duty as a constraint"
+  ],
+  "candidates": [
+    {
+      "kind": "problem",
+      "statement": "Onboarding a business account takes analysts about three days of manual document checks.",
+      "quote": "Onboarding a new business account takes our analysts about three days because every document is checked by hand",
+      "start": 285,
+      "end": 396,
+      "speaker_label": "Imogen Pratt",
+      "confidence": 0.95,
+      "suggested_depends_on": [],
+      "revises": null
+    },
+    {
+      "kind": "constraint",
+      "statement": "Customer documents stay in the private cloud, no third party OCR.",
+      "quote": "all customer documents must stay inside our private cloud, with no third party OCR service involved",
+      "start": 486,
+      "end": 585,
+      "speaker_label": "Imogen Pratt",
+      "confidence": 0.93,
+      "suggested_depends_on": [],
+      "revises": null
+    },
+    {
+      "kind": "decision",
+      "statement": "First release covers sole proprietor and LLC applications only.",
+      "quote": "we agreed to start with sole proprietor and LLC applications only",
+      "start": 683,
+      "end": 748,
+      "speaker_label": "Imogen Pratt",
+      "confidence": 0.9,
+      "suggested_depends_on": [],
+      "revises": null
+    },
+    {
+      "kind": "assumption",
+      "statement": "The scanner outputs PDFs at 300 dpi.",
+      "quote": "We are assuming the document scanner already outputs PDFs at 300 dpi",
+      "start": 1125,
+      "end": 1193,
+      "speaker_label": "Priya Raman",
+      "confidence": 0.82,
+      "suggested_depends_on": [],
+      "revises": null
+    },
+    {
+      "kind": "requirement",
+      "statement": "Flag any document whose beneficial owner is missing from the application.",
+      "quote": "The assistant must flag any document whose beneficial owner is not listed in the application",
+      "start": 1652,
+      "end": 1744,
+      "speaker_label": "Imogen Pratt",
+      "confidence": 0.91,
+      "suggested_depends_on": [],
+      "revises": null
+    },
+    {
+      "kind": "constraint",
+      "statement": "Every analyst decision is recorded with timestamp and analyst ID.",
+      "quote": "Every analyst decision must be recorded with a timestamp and the analyst's ID",
+      "start": 1783,
+      "end": 1860,
+      "speaker_label": "Imogen Pratt",
+      "confidence": 0.74,
+      "suggested_depends_on": [],
+      "revises": null
+    }
+  ]
+}

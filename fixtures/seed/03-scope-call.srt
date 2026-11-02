@@ -1,0 +1,227 @@
+1
+00:00:01,200 --> 00:00:07,000
+Priya Raman: Thanks everyone for joining. This is the scope check before we start the
+pilot build.
+
+2
+00:00:07,400 --> 00:00:12,840
+Priya Raman: Three things on the agenda. What changed since kickoff, anything new,
+and open questions.
+
+3
+00:00:13,740 --> 00:00:17,740
+Dana Whitcombe: I will start, because there is a change that matters.
+
+4
+00:00:18,340 --> 00:00:24,500
+Dana Whitcombe: The early shift in Columbus moved. The first trucks now roll out at
+5:30, not six.
+
+5
+00:00:25,700 --> 00:00:32,220
+Lena Sorensen: That is right. We pulled it forward half an hour to catch the morning
+rail yard drops.
+
+6
+00:00:32,720 --> 00:00:42,480
+Lena Sorensen: So the route suggestions need to be ready by 5:00 a.m. instead of 5:30
+a.m. Dispatchers need half an hour to review before the trucks roll.
+
+7
+00:00:43,280 --> 00:00:50,880
+Tomás Ferreira: Just to be sure I have it right. At kickoff we wrote down 5:30 and you
+are now saying 5:00?
+
+8
+00:00:52,280 --> 00:00:55,200
+Lena Sorensen: Yes, 5:00. 5:30 does not work anymore.
+
+9
+00:00:55,600 --> 00:01:02,480
+Priya Raman: Understood. That also pushes the planning run earlier, so we will have
+to revisit the 4:15 start time.
+
+10
+00:01:03,380 --> 00:01:10,980
+Tomás Ferreira: At the current start time we would have 45 minutes, and the run takes
+around 50 on a busy day.
+
+11
+00:01:11,580 --> 00:01:19,540
+Priya Raman: So the start time has to move or the run has to get faster. I will not
+pretend that is free.
+
+12
+00:01:20,740 --> 00:01:23,660
+Dana Whitcombe: Fine. Just tell us what it costs.
+
+13
+00:01:24,160 --> 00:01:26,720
+Priya Raman: Okay. Next, anything new since kickoff?
+
+14
+00:01:27,520 --> 00:01:36,200
+Lena Sorensen: Yes, one new thing. Dispatchers need to pin a driver to a specific load,
+and the assistant has to plan around the pin.
+
+15
+00:01:37,600 --> 00:01:43,760
+Lena Sorensen: Some customers ask for a named driver, and today the dispatchers just
+have to remember that.
+
+16
+00:01:44,160 --> 00:01:51,760
+Tomás Ferreira: So a pin is a hard constraint for the planner. That is clear enough to
+write down as a requirement.
+
+17
+00:01:52,660 --> 00:01:56,660
+Priya Raman: Agreed. Now Dayton. Lena, where are we with the cross-dock?
+
+18
+00:01:57,260 --> 00:02:02,340
+Lena Sorensen: Ignore what I said about October. The Dayton cross-dock slipped to next
+spring.
+
+19
+00:02:03,540 --> 00:02:08,980
+Dana Whitcombe: That also takes the forty extra loads a day out of our planning numbers.
+
+20
+00:02:09,480 --> 00:02:12,400
+Priya Raman: Noted. That one comes off the list.
+
+21
+00:02:13,200 --> 00:02:19,000
+Priya Raman: Now FleetDesk access. For phase one we have read-only, and suggestions
+go to a dashboard.
+
+22
+00:02:20,400 --> 00:02:27,280
+Marcus Oyelaran: I need to push back on that. We never agreed that read-only access was
+enough for the pilot.
+
+23
+00:02:27,680 --> 00:02:35,640
+Marcus Oyelaran: What I said at kickoff was that I could live with it to begin with. That
+is not the same thing.
+
+24
+00:02:36,540 --> 00:02:42,340
+Priya Raman: I hear you. In my notes from the kickoff, we recorded phase one as
+read-only.
+
+25
+00:02:42,940 --> 00:02:49,100
+Tomás Ferreira: And I said it twice, that we pull loads and drivers and never write
+anything back.
+
+26
+00:02:50,300 --> 00:03:00,420
+Marcus Oyelaran: You did. And I said to begin with. If dispatchers have to retype every
+assignment into FleetDesk, the pilot will not show the time savings Dana
+wants.
+
+27
+00:03:00,920 --> 00:03:04,200
+Dana Whitcombe: He has a point. Retyping eats the savings.
+
+28
+00:03:05,000 --> 00:03:11,160
+Lena Sorensen: My team would not want to do the pilot if they have to type everything
+twice.
+
+29
+00:03:12,560 --> 00:03:19,800
+Priya Raman: Okay. This is a disagreement and I do not want to paper over it. Marcus,
+what is your position?
+
+30
+00:03:20,200 --> 00:03:26,720
+Marcus Oyelaran: Write access for assignments only, behind a feature flag, approved by my
+team under the integration policy.
+
+31
+00:03:27,620 --> 00:03:35,220
+Priya Raman: We cannot settle that on this call. We will record it as disputed and
+Tomás will draft options for you.
+
+32
+00:03:35,820 --> 00:03:37,420
+Marcus Oyelaran: That is fair.
+
+33
+00:03:38,620 --> 00:03:42,980
+Priya Raman: Different topic, the driver app. Lena, you flagged something about
+Android?
+
+34
+00:03:43,480 --> 00:03:50,720
+Lena Sorensen: Yes. About fifteen percent of our owner-operator drivers carry phones
+that are not Android. They bring their own devices.
+
+35
+00:03:51,520 --> 00:03:58,400
+Tomás Ferreira: That breaks the Android only assumption. We would need either a second
+app build or a web fallback.
+
+36
+00:03:59,800 --> 00:04:03,440
+Priya Raman: Let's not decide today. We will cost both options.
+
+37
+00:04:03,840 --> 00:04:13,600
+Tomás Ferreira: One decision I do want to make now. For loads, we will poll the
+FleetDesk REST API every five minutes instead of building a file drop.
+
+38
+00:04:14,500 --> 00:04:21,740
+Tomás Ferreira: This depends on the REST API assumption from kickoff, so if that
+assumption changes, this decision changes with it.
+
+39
+00:04:22,340 --> 00:04:27,060
+Dana Whitcombe: With sixty requests a minute shared, polling every five minutes is fine.
+
+40
+00:04:28,260 --> 00:04:30,100
+Priya Raman: Agreed. Let me recap.
+
+41
+00:04:30,600 --> 00:04:38,920
+Priya Raman: Change one, route suggestions by 5:00. Change two, driver pins. Dayton
+is off for now. Read-only is disputed. Android is under review.
+
+42
+00:04:39,720 --> 00:04:43,720
+Tomás Ferreira: And the polling decision stands, subject to the API assumption.
+
+43
+00:04:45,120 --> 00:04:48,040
+Dana Whitcombe: When do we get the revised plan?
+
+44
+00:04:48,440 --> 00:04:53,160
+Priya Raman: By Friday. We will send the updated requirements and the confirmation
+list.
+
+45
+00:04:54,060 --> 00:04:55,660
+Dana Whitcombe: Good.
+
+46
+00:04:56,260 --> 00:05:02,420
+Marcus Oyelaran: One more thing from me. Nothing new connects to our network without my
+team approving it.
+
+47
+00:05:03,620 --> 00:05:06,900
+Tomás Ferreira: Understood, that is already in the security notes.
+
+48
+00:05:07,400 --> 00:05:09,000
+Priya Raman: Thanks everybody.
+
+49
+00:05:09,800 --> 00:05:11,400
+Lena Sorensen: Thanks.

@@ -1,0 +1,344 @@
+WEBVTT
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/1-0
+00:00:01.200 --> 00:00:09.880
+<v Priya Raman>Okay, I think we have everybody. Thanks for making the time, I'm Priya,
+I lead the forward deployed engineering team at Quillfield Labs.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/2-0
+00:00:10.280 --> 00:00:17.160
+<v Tomás Ferreira>And I'm Tomás, solutions engineer. I will be doing most of the
+integration work and taking notes today.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/3-0
+00:00:18.060 --> 00:00:26.020
+<v Dana Whitcombe>Dana Whitcombe, VP of Operations here at Halvorsen. I own the on-time
+numbers, so this project is one I care about.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/4-0
+00:00:26.620 --> 00:00:34.220
+<v Marcus Oyelaran>Marcus Oyelaran, I run IT. FleetDesk, the network, the Azure tenant, all
+of it ends up on my desk eventually.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/5-0
+00:00:35.420 --> 00:00:40.500
+<v Lena Sorensen>Lena Sorensen, dispatch manager. I run the dispatch floors in Columbus
+and Dayton.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/6-0
+00:00:41.000 --> 00:00:50.400
+<v Priya Raman>Great. The plan for the hour is simple. What hurts today, what has to be
+true for this to work, and what we do first.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/7-0
+00:00:51.200 --> 00:01:00.240
+<v Priya Raman>We will repeat things back as we go so we can write them down precisely.
+Tomás will send you the list to confirm afterwards.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/8-0
+00:01:01.640 --> 00:01:06.720
+<v Dana Whitcombe>That works. Let me start with the pain, because it is not complicated.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/9-0
+00:01:07.120 --> 00:01:17.600
+<v Dana Whitcombe>Every morning my dispatchers rebuild the day's routes by hand. Loads
+change overnight, drivers call out, and the plan from the night before
+is stale by five a.m.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/10-0
+00:01:18.500 --> 00:01:28.620
+<v Lena Sorensen>It is about two and a half hours of work per dispatcher, and they all do
+it at the same time in a spreadsheet next to FleetDesk.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/11-0
+00:01:29.220 --> 00:01:33.580
+<v Tomás Ferreira>And that manual re-plan is where the late deliveries come from?</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/12-0
+00:01:34.780 --> 00:01:45.620
+<v Dana Whitcombe>Mostly, yes. Last quarter about eleven percent of our deliveries out of
+Columbus arrived outside the customer window, and most of those trace
+back to a bad morning plan.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/13-0
+00:01:46.120 --> 00:01:54.080
+<v Priya Raman>Got it. So problem one is the manual morning re-plan and problem two is
+the late deliveries that follow from it.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/14-0
+00:01:54.880 --> 00:02:03.560
+<v Marcus Oyelaran>Can I add one? Dispatchers only see hours of service violations after a
+route is already assigned, so we catch them too late.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/15-0
+00:02:04.960 --> 00:02:09.320
+<v Priya Raman>Noted. Now constraints. Marcus, I suspect you have the longest list.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/16-0
+00:02:09.720 --> 00:02:21.280
+<v Marcus Oyelaran>I do. First, this has to run either on-prem in our Columbus data center
+or inside our own Azure tenant. We will not put dispatch data in a
+vendor-hosted multi-tenant cloud.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/17-0
+00:02:22.180 --> 00:02:33.020
+<v Marcus Oyelaran>Second, no driver location data leaves the United States. Not for
+processing, not for backup, not for support access. Two of our biggest
+shippers have that in their contracts.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/18-0
+00:02:33.620 --> 00:02:40.860
+<v Tomás Ferreira>Understood. That includes our own support engineers, so we will staff
+the support rota with US based people only.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/19-0
+00:02:42.060 --> 00:02:53.620
+<v Marcus Oyelaran>Third, FleetDesk has API rate limits. The vendor says sixty requests a
+minute per tenant on the standard plan, and we share that with the
+billing integration and the customer portal.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/20-0
+00:02:54.120 --> 00:03:00.640
+<v Priya Raman>Sixty a minute shared across three consumers is tight. We will design
+for polling, not chatty calls.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/21-0
+00:03:01.440 --> 00:03:11.920
+<v Lena Sorensen>Fourth is the union agreement. A driver's shift cannot be longer than
+eleven hours door to door, and the routes have to respect that or we get
+grievances.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/22-0
+00:03:13.320 --> 00:03:16.600
+<v Dana Whitcombe>And that includes the break time, right Lena?</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/23-0
+00:03:17.000 --> 00:03:20.640
+<v Lena Sorensen>Right, the eleven hours is clock time, breaks included.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/24-0
+00:03:21.540 --> 00:03:25.540
+<v Priya Raman>That is clear. Tomás, can you read back the constraints?</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/25-0
+00:03:26.140 --> 00:03:34.820
+<v Tomás Ferreira>Sure. On-prem or your Azure tenant, no driver location data outside the
+US, the FleetDesk rate limit, and the eleven hour shift cap.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/26-0
+00:03:36.020 --> 00:03:42.180
+<v Marcus Oyelaran>That is the list. There will be more from security, but those are the
+big four.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/27-0
+00:03:42.680 --> 00:03:48.480
+<v Priya Raman>Good. Now assumptions, the things we are treating as true until someone
+tells us otherwise.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/28-0
+00:03:49.280 --> 00:03:55.800
+<v Tomás Ferreira>I am assuming FleetDesk exposes a REST API for loads and driver
+assignments. Marcus, is that right?</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/29-0
+00:03:57.200 --> 00:04:05.880
+<v Marcus Oyelaran>Yes. There is a REST API for loads, stops and assignments, and it can
+read and write. Our billing integration already uses it.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/30-0
+00:04:06.280 --> 00:04:14.960
+<v Priya Raman>Second assumption on our side is that all your drivers carry Android
+phones, since that keeps the mobile app to a single build.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/31-0
+00:04:15.860 --> 00:04:19.500
+<v Lena Sorensen>Mostly yes. The company issued phones are all Android.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/32-0
+00:04:20.100 --> 00:04:27.340
+<v Lena Sorensen>Oh, and assume the Dayton cross-dock opens in October, that adds about
+forty loads a day to the board.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/33-0
+00:04:28.540 --> 00:04:32.180
+<v Dana Whitcombe>Let's not plan around Dayton yet though. Columbus first.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/34-0
+00:04:32.680 --> 00:04:38.480
+<v Priya Raman>That is where I wanted to go next. Are we agreed on the starting point?</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/35-0
+00:04:39.280 --> 00:04:46.880
+<v Dana Whitcombe>Decision from my side, we pilot at the Columbus depot first and only
+expand to Dayton if the numbers hold.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/36-0
+00:04:48.280 --> 00:04:51.560
+<v Marcus Oyelaran>Agreed. Smaller blast radius for IT as well.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/37-0
+00:04:51.960 --> 00:04:59.920
+<v Tomás Ferreira>For phase one I would propose read-only access to FleetDesk. We pull
+loads and drivers and we never write anything back.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/38-0
+00:05:00.820 --> 00:05:05.900
+<v Marcus Oyelaran>I can live with read-only to begin with. Security will like it too.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/39-0
+00:05:06.500 --> 00:05:13.380
+<v Priya Raman>So we are agreed, phase one uses read-only access to FleetDesk and we do
+not write anything back.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/40-0
+00:05:14.580 --> 00:05:16.420
+<v Marcus Oyelaran>To begin with, yes.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/41-0
+00:05:16.920 --> 00:05:22.000
+<v Priya Raman>Okay. Requirements now. What does a good morning look like for a
+dispatcher?</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/42-0
+00:05:22.800 --> 00:05:30.040
+<v Lena Sorensen>Route suggestions need to be ready by 5:30 a.m. local time, because the
+first trucks roll out at six.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/43-0
+00:05:31.440 --> 00:05:38.320
+<v Priya Raman>Then we agree the nightly planning run starts at 4:15 a.m. and has until
+5:30 a.m. to finish.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/44-0
+00:05:38.720 --> 00:05:43.440
+<v Lena Sorensen>Fine with me. The dispatchers start looking at the screen around 5:30.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/45-0
+00:05:44.340 --> 00:05:52.300
+<v Lena Sorensen>The most important thing for me is that a dispatcher can override any
+suggestion, with no exceptions and no extra approval.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/46-0
+00:05:52.900 --> 00:06:01.940
+<v Dana Whitcombe>Every override needs an audit trail, who changed what, when, and the
+reason they gave. Our insurer will ask for it after any incident.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/47-0
+00:06:03.140 --> 00:06:10.020
+<v Priya Raman>Can I check the reason part? Is a free text reason enough or do you want
+a dropdown?</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/48-0
+00:06:10.520 --> 00:06:17.040
+<v Dana Whitcombe>Dropdown with an other option. Free text only is useless when you try to
+report on it.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/49-0
+00:06:17.840 --> 00:06:26.160
+<v Lena Sorensen>One more. If the planning run is late, dispatchers should see
+yesterday's plan with a clear warning instead of an empty screen.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/50-0
+00:06:27.560 --> 00:06:31.560
+<v Priya Raman>Makes sense, we will write that down as a requirement.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/51-0
+00:06:31.960 --> 00:06:38.480
+<v Marcus Oyelaran>From IT, we want SSO through our identity provider at some point, but
+not for the pilot.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/52-0
+00:06:39.380 --> 00:06:44.820
+<v Priya Raman>Understood, SSO is a later want. We will not build it in phase one.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/53-0
+00:06:45.420 --> 00:06:53.020
+<v Tomás Ferreira>Question on the driver app. Do drivers need to see the routes
+themselves, or just the dispatchers in phase one?</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/54-0
+00:06:54.220 --> 00:07:01.100
+<v Lena Sorensen>Drivers get the route in the app after the dispatcher accepts it. They
+should not see raw suggestions.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/55-0
+00:07:01.600 --> 00:07:04.520
+<v Dana Whitcombe>Right. The dispatcher is always the gate.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/56-0
+00:07:05.320 --> 00:07:08.240
+<v Priya Raman>That fits with the override requirement. Good.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/57-0
+00:07:09.640 --> 00:07:13.640
+<v Marcus Oyelaran>What about the model side? Where does the model run?</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/58-0
+00:07:14.040 --> 00:07:19.480
+<v Priya Raman>Inside the same boundary, so your Azure tenant or your data center.
+Nothing leaves.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/59-0
+00:07:20.380 --> 00:07:25.460
+<v Marcus Oyelaran>Good. I will want a proper security review before anything touches
+production data.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/60-0
+00:07:26.060 --> 00:07:30.060
+<v Priya Raman>Agreed. Let's put that on the calendar for next week.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/61-0
+00:07:31.260 --> 00:07:34.540
+<v Tomás Ferreira>I can set it up for the fifteenth.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/62-0
+00:07:35.040 --> 00:07:37.240
+<v Marcus Oyelaran>The fifteenth works for me.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/63-0
+00:07:38.040 --> 00:07:42.400
+<v Dana Whitcombe>How do we measure success at the end of the pilot?</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/64-0
+00:07:43.800 --> 00:07:51.760
+<v Priya Raman>We would propose three numbers. Time spent on the morning plan, share of
+deliveries inside the window, and the override rate.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/65-0
+00:07:52.160 --> 00:07:57.240
+<v Dana Whitcombe>I like the override rate. If dispatchers override everything, we have
+learned something.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/66-0
+00:07:58.140 --> 00:08:02.860
+<v Lena Sorensen>And if they never override, I will worry they are not looking.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/67-0
+00:08:03.460 --> 00:08:09.260
+<v Priya Raman>Fair. We will track it and talk about it, not use it as a target.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/68-0
+00:08:10.460 --> 00:08:16.620
+<v Tomás Ferreira>Next steps. I will send the notes and the list of items for you to
+confirm.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/69-0
+00:08:17.120 --> 00:08:22.920
+<v Priya Raman>And Marcus, we will need a contact on your network team for the Azure
+side.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/70-0
+00:08:23.720 --> 00:08:28.080
+<v Marcus Oyelaran>That would be Ravi on my team. I will introduce you.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/71-0
+00:08:29.480 --> 00:08:34.560
+<v Dana Whitcombe>Anything else from my side? No. Thanks everyone, this was a good start.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/72-0
+00:08:34.960 --> 00:08:36.560
+<v Lena Sorensen>Thanks all.</v>
+
+3f9a1c2e-7b44-4d0e-8a51-6c2f90d1e7b3/73-0
+00:08:37.460 --> 00:08:39.300
+<v Priya Raman>Thank you. Talk soon.</v>

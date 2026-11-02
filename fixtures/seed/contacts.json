@@ -1,0 +1,20 @@
+[
+  {
+    "name": "Dana Whitcombe",
+    "email": "dana.whitcombe@halvorsen-freight.example",
+    "title": "VP Operations",
+    "organization": "Halvorsen Freight"
+  },
+  {
+    "name": "Marcus Oyelaran",
+    "email": "marcus.oyelaran@halvorsen-freight.example",
+    "title": "IT Director",
+    "organization": "Halvorsen Freight"
+  },
+  {
+    "name": "Lena Sorensen",
+    "email": "lena.sorensen@halvorsen-freight.example",
+    "title": "Dispatch Manager",
+    "organization": "Halvorsen Freight"
+  }
+]

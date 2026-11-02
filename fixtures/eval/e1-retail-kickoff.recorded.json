@@ -1,0 +1,97 @@
+{
+  "_notes": [
+    "candidates[2]: WRONG_OFFSETS - quote is exact but start/end were computed against the raw VTT (cue ids and timing lines included), not the normalized text",
+    "candidates[7]: HALLUCINATED_QUOTE - paraphrase that inflates Gareth's 'only an idea right now' remark into a requirement; the quote text does not appear in the source",
+    "expected[7]: MISSED - weekly report of how often managers changed the suggestions was not extracted"
+  ],
+  "candidates": [
+    {
+      "kind": "problem",
+      "statement": "Store managers lose most of Monday building orders and fast sellers still stock out.",
+      "quote": "Managers spend most of Monday building orders, and stockouts on fast sellers still happen by Wednesday",
+      "start": 322,
+      "end": 424,
+      "speaker_label": "Noor Haddad",
+      "confidence": 0.94,
+      "suggested_depends_on": [],
+      "revises": null
+    },
+    {
+      "kind": "constraint",
+      "statement": "Store sales data must not leave the EU.",
+      "quote": "Store sales data cannot leave the EU",
+      "start": 618,
+      "end": 654,
+      "speaker_label": "Gareth Lindqvist",
+      "confidence": 0.93,
+      "suggested_depends_on": [],
+      "revises": null
+    },
+    {
+      "kind": "constraint",
+      "statement": "Orders must be locked by 14:00 the day before delivery.",
+      "quote": "orders have to be locked by 14:00 on the day before delivery",
+      "start": 1146,
+      "end": 1206,
+      "speaker_label": "Noor Haddad",
+      "confidence": 0.9,
+      "suggested_depends_on": [],
+      "revises": null
+    },
+    {
+      "kind": "assumption",
+      "statement": "Inventory feed refreshes nightly with about 2% accuracy.",
+      "quote": "the inventory feed is refreshed nightly and is accurate to within two percent",
+      "start": 897,
+      "end": 974,
+      "speaker_label": "Gareth Lindqvist",
+      "confidence": 0.86,
+      "suggested_depends_on": [],
+      "revises": null
+    },
+    {
+      "kind": "decision",
+      "statement": "Pilot with the twelve Rhine-Main stores first.",
+      "quote": "to pilot with the twelve stores in the Rhine-Main region first",
+      "start": 1186,
+      "end": 1248,
+      "speaker_label": "Gareth Lindqvist",
+      "confidence": 0.88,
+      "suggested_depends_on": [],
+      "revises": null
+    },
+    {
+      "kind": "requirement",
+      "statement": "Managers can edit any suggested order line before submitting.",
+      "quote": "Managers must be able to edit any suggested order line before they submit the order",
+      "start": 1417,
+      "end": 1500,
+      "speaker_label": "Noor Haddad",
+      "confidence": 0.92,
+      "suggested_depends_on": [],
+      "revises": null
+    },
+    {
+      "kind": "requirement",
+      "statement": "Each suggested line carries a short reason.",
+      "quote": "every suggested line needs a short reason, like promotion next week or sales trending up",
+      "start": 1524,
+      "end": 1612,
+      "speaker_label": "Gareth Lindqvist",
+      "confidence": 0.9,
+      "suggested_depends_on": [],
+      "revises": null
+    },
+    {
+      "kind": "requirement",
+      "statement": "Weather data must be included in the replenishment forecasts.",
+      "quote": "The forecasts must include weather data from the first release",
+      "start": 1821,
+      "end": 1883,
+      "speaker_label": "Gareth Lindqvist",
+      "confidence": 0.57,
+      "suggested_depends_on": [],
+      "revises": null
+    }
+  ]
+}

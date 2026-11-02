@@ -1,0 +1,97 @@
+{
+  "_notes": [
+    "candidates[2]: WRONG_OFFSETS - quote is exact but start/end are shifted 23 characters early (looks like an off-by-one-heading error)",
+    "candidates[7]: FALSE_POSITIVE - real quote, but the notes say it is parked and not a commitment, so it is not an item in expected",
+    "expected[7]: MISSED - the 2 minute triage requirement was not extracted"
+  ],
+  "candidates": [
+    {
+      "kind": "problem",
+      "statement": "Adjusters spend about 40% of their day on first notices of loss.",
+      "quote": "Adjusters spend about 40 percent of their day reading and re-keying first notices of loss",
+      "start": 282,
+      "end": 371,
+      "speaker_label": "Helena",
+      "confidence": 0.95,
+      "suggested_depends_on": [],
+      "revises": null
+    },
+    {
+      "kind": "constraint",
+      "statement": "Claims data must not go to model endpoints outside the US.",
+      "quote": "Claims data may not be sent to any model endpoint outside the United States",
+      "start": 506,
+      "end": 581,
+      "speaker_label": "Victor",
+      "confidence": 0.94,
+      "suggested_depends_on": [],
+      "revises": null
+    },
+    {
+      "kind": "constraint",
+      "statement": "Every system touching a claim file must be logged for the regulator audit.",
+      "quote": "Every system that touches a claim file must be logged for the state regulator audit",
+      "start": 562,
+      "end": 645,
+      "speaker_label": null,
+      "confidence": 0.89,
+      "suggested_depends_on": [],
+      "revises": null
+    },
+    {
+      "kind": "constraint",
+      "statement": "No deployments to claims systems between Nov 20 and Jan 6.",
+      "quote": "Claims systems are under a change freeze from Nov 20 to Jan 6, so no deployments in that window",
+      "start": 672,
+      "end": 767,
+      "speaker_label": null,
+      "confidence": 0.91,
+      "suggested_depends_on": [],
+      "revises": null
+    },
+    {
+      "kind": "assumption",
+      "statement": "Policy admin system exposes claim status via a nightly export.",
+      "quote": "We assume the policy admin system exposes claim status through a nightly export",
+      "start": 796,
+      "end": 875,
+      "speaker_label": "Victor",
+      "confidence": 0.87,
+      "suggested_depends_on": [],
+      "revises": null
+    },
+    {
+      "kind": "decision",
+      "statement": "Start with auto glass and minor property claims only.",
+      "quote": "Start with auto glass and minor property claims only",
+      "start": 954,
+      "end": 1006,
+      "speaker_label": null,
+      "confidence": 0.92,
+      "suggested_depends_on": [],
+      "revises": null
+    },
+    {
+      "kind": "requirement",
+      "statement": "Adjusters can reject any triage suggestion and see why it was made.",
+      "quote": "Adjusters can reject any triage suggestion and see why it was suggested",
+      "start": 1188,
+      "end": 1259,
+      "speaker_label": null,
+      "confidence": 0.9,
+      "suggested_depends_on": [],
+      "revises": null
+    },
+    {
+      "kind": "requirement",
+      "statement": "The assistant supports subrogation screening.",
+      "quote": "Fatima floated using the assistant for subrogation screening later; parked, not a commitment",
+      "start": 1074,
+      "end": 1166,
+      "speaker_label": null,
+      "confidence": 0.52,
+      "suggested_depends_on": [],
+      "revises": null
+    }
+  ]
+}

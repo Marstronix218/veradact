@@ -1,0 +1,46 @@
+From: Imogen Pratt <imogen.pratt@fennimore-bank.example>
+To: Priya Raman <priya.raman@quillfield-labs.example>
+Date: Mon, 12 Oct 2026 09:14:00 -0400
+Subject: KYC intake assistant - scope after Friday's call
+
+Priya,
+
+Thanks for Friday. Here is where I landed after talking to my team.
+
+Onboarding a new business account takes our analysts about three days because every document is checked by hand.
+My team is cautiously optimistic about a first pass by the assistant.
+On data handling, all customer documents must stay inside our private cloud, with no third party OCR service involved.
+Our regulator would treat anything else as a material outsourcing change.
+For the first release we agreed to start with sole proprietor and LLC applications only.
+Partnerships and trusts have too many exceptions for now.
+
+Imogen
+
+From: Priya Raman <priya.raman@quillfield-labs.example>
+To: Imogen Pratt <imogen.pratt@fennimore-bank.example>
+Date: Mon, 12 Oct 2026 14:02:00 -0400
+Subject: Re: KYC intake assistant - scope after Friday's call
+
+Imogen,
+
+This is very helpful. A few things I want to confirm so we write them down correctly.
+
+We are assuming the document scanner already outputs PDFs at 300 dpi. If it does not, tell us now, because extraction quality drops quickly below that.
+Also, should the assistant flag mismatches for the analyst rather than block the application?
+
+Priya
+
+From: Imogen Pratt <imogen.pratt@fennimore-bank.example>
+To: Priya Raman <priya.raman@quillfield-labs.example>
+Date: Tue, 13 Oct 2026 08:40:00 -0400
+Subject: Re: KYC intake assistant - scope after Friday's call
+
+Priya,
+
+Yes on the scanner, 300 dpi is our standard setting.
+The assistant must flag any document whose beneficial owner is not listed in the application, and it never blocks the application.
+Every analyst decision must be recorded with a timestamp and the analyst's ID, because audit will ask for it.
+I will ask my director about a pilot date and come back to you.
+
+Thanks,
+Imogen

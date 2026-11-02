@@ -1,0 +1,98 @@
+{
+  "01-kickoff.vtt": {
+    "date": "2026-09-08",
+    "type": "machine_transcript",
+    "jurisdiction": "OH",
+    "consent_attested": true,
+    "participants": [
+      {
+        "name": "Priya Raman",
+        "org": "Quillfield Labs",
+        "role": "FDE lead"
+      },
+      {
+        "name": "Tomás Ferreira",
+        "org": "Quillfield Labs",
+        "role": "Solutions engineer"
+      },
+      {
+        "name": "Dana Whitcombe",
+        "org": "Halvorsen Freight",
+        "role": "VP Operations"
+      },
+      {
+        "name": "Marcus Oyelaran",
+        "org": "Halvorsen Freight",
+        "role": "IT Director"
+      },
+      {
+        "name": "Lena Sorensen",
+        "org": "Halvorsen Freight",
+        "role": "Dispatch Manager"
+      }
+    ]
+  },
+  "02-security-review.md": {
+    "date": "2026-09-15",
+    "type": "human_notes",
+    "author": "Tomás Ferreira",
+    "jurisdiction": "OH",
+    "consent_attested": true,
+    "consent_note": "Human-written notes, not a recording; attestation recorded for uniformity.",
+    "participants": [
+      {
+        "name": "Priya Raman",
+        "org": "Quillfield Labs",
+        "role": "FDE lead"
+      },
+      {
+        "name": "Tomás Ferreira",
+        "org": "Quillfield Labs",
+        "role": "Solutions engineer"
+      },
+      {
+        "name": "Dana Whitcombe",
+        "org": "Halvorsen Freight",
+        "role": "VP Operations"
+      },
+      {
+        "name": "Marcus Oyelaran",
+        "org": "Halvorsen Freight",
+        "role": "IT Director"
+      }
+    ]
+  },
+  "03-scope-call.srt": {
+    "date": "2026-09-22",
+    "type": "machine_transcript",
+    "jurisdiction": "TX",
+    "consent_attested": true,
+    "participants": [
+      {
+        "name": "Priya Raman",
+        "org": "Quillfield Labs",
+        "role": "FDE lead"
+      },
+      {
+        "name": "Tomás Ferreira",
+        "org": "Quillfield Labs",
+        "role": "Solutions engineer"
+      },
+      {
+        "name": "Dana Whitcombe",
+        "org": "Halvorsen Freight",
+        "role": "VP Operations"
+      },
+      {
+        "name": "Marcus Oyelaran",
+        "org": "Halvorsen Freight",
+        "role": "IT Director"
+      },
+      {
+        "name": "Lena Sorensen",
+        "org": "Halvorsen Freight",
+        "role": "Dispatch Manager"
+      }
+    ]
+  }
+}
