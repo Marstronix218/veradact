@@ -1,1 +1,10 @@
-export const emailPackageName = "@veradact/email";
+export type { EmailMessage, EmailProvider } from "./types";
+export { EmailDeliveryError } from "./errors";
+export type { EmailDeliveryErrorCode } from "./errors";
+export { ConsoleEmailProvider } from "./console";
+export type { ConsoleEmailProviderOptions } from "./console";
+export { SmtpEmailProvider } from "./smtp";
+export type { SmtpEmailProviderOptions } from "./smtp";
+export { MemoryEmailProvider } from "./memory";
+export type { SentEmail } from "./memory";
+export { createEmailProviderFromEnv } from "./factory";
