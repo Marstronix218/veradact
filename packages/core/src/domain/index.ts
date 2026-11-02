@@ -12,3 +12,4 @@ export * from "./dependencies";
 export * from "./consent";
 export * from "./business-days";
 export * from "./word-diff";
+export * from "./metrics";

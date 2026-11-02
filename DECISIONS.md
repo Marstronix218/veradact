@@ -157,3 +157,6 @@ Matching is case-insensitive and ignores surrounding whitespace. Accepted: two-l
 
 ### D-042 · Business-day edge cases
 `addBusinessDays(t, n, tz)` steps over local calendar dates in `tz` and keeps t's local wall time. A start on Saturday or Sunday counts the following Monday as business day 1 (Saturday + 1 = Monday, same time). A wall time that does not exist on the target day (spring-forward gap on a weekday, e.g. Africa/Cairo) resolves forward by the gap; an ambiguous one resolves as `TZDate` does (standard-time occurrence). `businessDaysBetween(a, b, tz)` counts weekdays d with date(a) < d ≤ date(b) and is the inverse of `addBusinessDays`.
+
+### D-043 · Metric interpretation details
+Metrics are computed as of `now` (later events, link timestamps and usage rows are ignored, like replay). A version is "pulled" when the first revise/withdraw/supersede after it was sent is recorded before `window_end` and no response to that version precedes it (compared by seq). A confirmation exactly at `window_end` counts. The median time to confirm includes confirmations on still-maturing versions. Link figures count only links whose email was sent. Churn counts a revision when any earlier `item_confirmed` exists on the item. CSV cells whose text starts with `= + - @`, tab or CR are prefixed with `'` so spreadsheets do not evaluate them.
