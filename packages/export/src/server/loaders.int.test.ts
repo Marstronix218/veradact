@@ -6,6 +6,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { createItem, eraseContact, reviseItem } from "@veradact/core";
 import { confirmationEvidence, event, usageEvent, withTenant, type Tx } from "@veradact/db";
 import { adminTestDb, createTestOrg, testDb } from "@veradact/db/testing";
+import { renderRecordMarkdown } from "../record";
 import { AI_OFF_NOTICE, NOT_CONFIRMED_HEADING } from "../spec";
 import { loadExportContext, loadRecord, loadSpec, parseAsOf, recordUsage, resolveEngagementRef, resolveItemRef } from "./index";
 import { createExportScenario, DISPUTE_COMMENT, onFirstEventRead, SCENARIO_TIME_ZONE, type ExportScenario } from "./testing";
@@ -176,6 +177,10 @@ describe("loadRecord", () => {
     expect(record.authorizations.map((a) => a.evidence)).toEqual(["verified", "verified"]);
     // Five items at version 1: every content hash recomputes.
     expect(record.contentHashes).toEqual({ checked: 5, mismatches: [] });
+    // The evidence snapshot's email domain is shown next to each responder (D-057).
+    const domains = [...record.responses, ...record.authorizations].map((r) => r.emailDomain);
+    expect(domains.every((d) => typeof d === "string" && /^[a-z0-9.-]+$/.test(d))).toBe(true);
+    expect(renderRecordMarkdown(record, ctx)).toContain(`(@${domains[0]})`);
   });
 
   it("checks authorization evidence too: missing without a snapshot, erased after eraseContact", async () => {

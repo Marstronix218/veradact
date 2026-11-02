@@ -75,9 +75,17 @@ export async function loadRecord(tx: Tx, input: LoadRecordInput): Promise<Loaded
     return typeof contactId === "string" && isErased(contactId) ? null : undefined;
   };
 
+  const emailDomainFor = (seq: number): string | null => {
+    const row = bySeq.get(seq);
+    const email = row ? evidenceByEvent.get(row.id)?.email : undefined;
+    if (!email) return null;
+    const at = email.lastIndexOf("@");
+    return at >= 0 && at < email.length - 1 ? email.slice(at + 1).toLowerCase() : null;
+  };
+
   const record = buildRecordExport(
     rows.map((r) => r.event),
-    { evidenceFor, commentFor, expectedHead: head ? { seq: head.seq, hash: head.hash } : null },
+    { evidenceFor, commentFor, emailDomainFor, expectedHead: head ? { seq: head.seq, hash: head.hash } : null },
   );
   return { record, ctx };
 }

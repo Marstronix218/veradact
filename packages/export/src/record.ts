@@ -20,7 +20,7 @@ import {
 import type { ExportContext } from "./context";
 import { CHAIN_FAILURE_TEXT, formatDate, formatDateTime, isoUtc } from "./format";
 import { mdBlockquote, mdCode, mdInline } from "./markdown";
-import { contactLabel } from "./present";
+import { contactLabel, contactLabelWithDomain } from "./present";
 import { agreedItemsMarkdown, AI_OFF_NOTICE, notConfirmedMarkdown, yamlString } from "./spec";
 
 /** Result of checking a response's `evidence_commitment` against its `confirmation_evidence` snapshot (§6). */
@@ -36,6 +36,8 @@ export interface RecordResponse {
   contactId: string;
   requestId: string;
   evidence: EvidenceStatus;
+  /** Domain of the address in the evidence snapshot (D-057), null when erased or unknown. */
+  emailDomain?: string | null;
   /** Dispute comment (`response_comment`): text, null when erased, undefined when not supplied. */
   comment?: string | null;
 }
@@ -48,6 +50,8 @@ export interface RecordAuthorization {
   textVersion: string;
   /** The authorization event's `evidence_commitment` checked against its snapshot (§6, D-047). */
   evidence: EvidenceStatus;
+  /** Domain of the address in the evidence snapshot (D-057), null when erased or unknown. */
+  emailDomain?: string | null;
 }
 
 /** Content hashes of `item_created` / `item_revised` payloads, recomputed with `itemContentHash`. */
@@ -88,6 +92,8 @@ export interface RecordFromLogOptions {
   evidenceFor(seq: number, contactId: string): EvidenceStatus;
   /** Dispute comment of the event at `seq`: text, null when erased, undefined to leave out. */
   commentFor?(seq: number): string | null | undefined;
+  /** Email domain in the evidence snapshot of the event at `seq`, so a dispute shows who confirmed. */
+  emailDomainFor?(seq: number): string | null;
   expectedHead: ChainHead | null;
 }
 
@@ -133,6 +139,7 @@ export function buildRecordExport(events: readonly StoredEvent[], opts: RecordFr
           requestId: p.request_id,
           evidence: opts.evidenceFor(e.seq, p.contact_id),
         };
+        if (opts.emailDomainFor) response.emailDomain = opts.emailDomainFor(e.seq);
         if (e.type === "item_disputed" && opts.commentFor) {
           const comment = opts.commentFor(e.seq);
           if (comment !== undefined) response.comment = comment;
@@ -149,6 +156,7 @@ export function buildRecordExport(events: readonly StoredEvent[], opts: RecordFr
           decision: e.type === "authorization_granted" ? "granted" : "declined",
           textVersion: e.payload.text_version,
           evidence: opts.evidenceFor(e.seq, e.payload.contact_id),
+          ...(opts.emailDomainFor ? { emailDomain: opts.emailDomainFor(e.seq) } : {}),
         });
         break;
       default:
@@ -361,7 +369,7 @@ export function renderRecordMarkdown(record: RecordExport, ctx: ExportContext): 
     );
     for (const r of record.responses) {
       out.push(
-        `| ${r.seq} | ${isoUtc(r.recordedAt)} | ${cell(contactLabel(r.contactId, r.evidence === "erased", ctx))} | ${RESPONSE_LABEL[r.type]} | ${cell(r.shortId)} | ${r.version} | ${mdCode(r.contentHash)} | ${mdCode(r.requestId)} | ${EVIDENCE_LABEL[r.evidence]} |`,
+        `| ${r.seq} | ${isoUtc(r.recordedAt)} | ${cell(contactLabelWithDomain(r.contactId, r.evidence === "erased", r.emailDomain, ctx))} | ${RESPONSE_LABEL[r.type]} | ${cell(r.shortId)} | ${r.version} | ${mdCode(r.contentHash)} | ${mdCode(r.requestId)} | ${EVIDENCE_LABEL[r.evidence]} |`,
       );
     }
     out.push("", EVIDENCE_LEGEND, "");
@@ -369,7 +377,7 @@ export function renderRecordMarkdown(record: RecordExport, ctx: ExportContext): 
     if (comments.length > 0) {
       out.push("**Dispute comments**", "");
       for (const r of comments) {
-        out.push(`- Seq ${r.seq} · ${mdInline(r.shortId)} version ${r.version} · ${mdInline(contactLabel(r.contactId, r.evidence === "erased", ctx))}:`);
+        out.push(`- Seq ${r.seq} · ${mdInline(r.shortId)} version ${r.version} · ${mdInline(contactLabelWithDomain(r.contactId, r.evidence === "erased", r.emailDomain, ctx))}:`);
         out.push(r.comment ? mdBlockquote(r.comment, "  ") : "  (comment erased)");
       }
       out.push("");
@@ -382,7 +390,7 @@ export function renderRecordMarkdown(record: RecordExport, ctx: ExportContext): 
     out.push("| Seq | Recorded at (UTC) | Contact | Decision | Text version | Evidence |", "|---:|---|---|---|---|---|");
     for (const a of record.authorizations) {
       out.push(
-        `| ${a.seq} | ${isoUtc(a.recordedAt)} | ${cell(contactLabel(a.contactId, a.evidence === "erased", ctx))} | ${a.decision} | ${cell(a.textVersion)} | ${EVIDENCE_LABEL[a.evidence]} |`,
+        `| ${a.seq} | ${isoUtc(a.recordedAt)} | ${cell(contactLabelWithDomain(a.contactId, a.evidence === "erased", a.emailDomain, ctx))} | ${a.decision} | ${cell(a.textVersion)} | ${EVIDENCE_LABEL[a.evidence]} |`,
       );
     }
     out.push("", EVIDENCE_LEGEND, "");

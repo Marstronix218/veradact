@@ -71,7 +71,21 @@ export function contactLabel(contactId: string, erased: boolean, ctx: ExportCont
   return name === null || name.trim() === "" ? ERASED_CONTACT : name.trim();
 }
 
-export function presentItem(item: AgreedItem, ctx: ExportContext): ItemPresentation {
+/** `Marcus Example (@client.example)`: the evidence email domain makes self-confirmation visible (D-057). */
+export function contactLabelWithDomain(contactId: string, erased: boolean, domain: string | null | undefined, ctx: ExportContext): string {
+  const label = contactLabel(contactId, erased, ctx);
+  return !erased && domain ? `${label} (@${domain})` : label;
+}
+
+/** Shown instead of a confirmer's name in outputs made for coding agents when AI is off (D-057). */
+export const CLIENT_CONTACT = "Client contact";
+
+export interface PresentOptions {
+  /** Replace confirmer names with `Client contact` (AI-off spec exports, which feed coding agents). */
+  anonymousContacts?: boolean;
+}
+
+export function presentItem(item: AgreedItem, ctx: ExportContext, opts: PresentOptions = {}): ItemPresentation {
   const tz = ctx.engagement.timeZone;
   const manual = item.manual
     ? `entered manually by ${ctx.userName(item.manual.entered_by)?.trim() || UNKNOWN_USER} (dated ${formatDate(item.occurredAt, tz)})`
@@ -87,7 +101,9 @@ export function presentItem(item: AgreedItem, ctx: ExportContext): ItemPresentat
       : [],
     manual,
     citations: item.spans.map((s) => citeSpan(s, ctx)),
-    confirmedBy: item.confirmations.map((c) => `${contactLabel(c.contactId, c.contactErased, ctx)} (${formatDate(c.recordedAt, tz)})`),
+    confirmedBy: item.confirmations.map(
+      (c) => `${opts.anonymousContacts ? CLIENT_CONTACT : contactLabel(c.contactId, c.contactErased, ctx)} (${formatDate(c.recordedAt, tz)})`,
+    ),
     dependsOn: item.dependsOn.map(dependencyLabel),
   };
 }

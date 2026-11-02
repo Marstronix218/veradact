@@ -6,7 +6,7 @@
 import PDFDocument from "pdfkit";
 import type { ExportContext } from "./context";
 import { formatDate, formatDateTime, isoUtc, KIND_SECTION } from "./format";
-import { contactLabel, groupByKind, notConfirmedStatus, presentItem, type ItemPresentation } from "./present";
+import { contactLabel, contactLabelWithDomain, groupByKind, notConfirmedStatus, presentItem, type ItemPresentation } from "./present";
 import {
   APPENDIX_CODE,
   APPENDIX_INTRO,
@@ -290,7 +290,7 @@ function writeRecord(doc: PDFKit.PDFDocument, record: RecordExport, ctx: ExportC
         cells: [
           String(r.seq),
           isoUtc(r.recordedAt),
-          contactLabel(r.contactId, r.evidence === "erased", ctx),
+          contactLabelWithDomain(r.contactId, r.evidence === "erased", r.emailDomain, ctx),
           RESPONSE_LABEL[r.type],
           r.shortId,
           String(r.version),
@@ -305,7 +305,7 @@ function writeRecord(doc: PDFKit.PDFDocument, record: RecordExport, ctx: ExportC
     if (comments.length > 0) {
       w.text("Dispute comments", { font: FONT.bold, size: 9.5 });
       for (const r of comments) {
-        w.text(`Seq ${r.seq} · ${r.shortId} version ${r.version} · ${contactLabel(r.contactId, r.evidence === "erased", ctx)}:`, { gap: 1 });
+        w.text(`Seq ${r.seq} · ${r.shortId} version ${r.version} · ${contactLabelWithDomain(r.contactId, r.evidence === "erased", r.emailDomain, ctx)}:`, { gap: 1 });
         w.text(r.comment ? `“${r.comment.trim()}”` : "(comment erased)", { font: FONT.italic, indent: 12, color: COLOR.muted });
       }
     }
@@ -325,7 +325,7 @@ function writeRecord(doc: PDFKit.PDFDocument, record: RecordExport, ctx: ExportC
         { header: "Evidence", width: 66 },
       ],
       record.authorizations.map((a) => ({
-        cells: [String(a.seq), isoUtc(a.recordedAt), contactLabel(a.contactId, a.evidence === "erased", ctx), a.decision, a.textVersion, EVIDENCE_LABEL[a.evidence]],
+        cells: [String(a.seq), isoUtc(a.recordedAt), contactLabelWithDomain(a.contactId, a.evidence === "erased", a.emailDomain, ctx), a.decision, a.textVersion, EVIDENCE_LABEL[a.evidence]],
         color: a.evidence === "mismatch" ? COLOR.fail : undefined,
       })),
     );

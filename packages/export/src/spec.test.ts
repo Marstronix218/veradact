@@ -152,6 +152,9 @@ describe("renderSpecMarkdown", () => {
     expect(itemSection(md, "HALV-P1")).toContain(`- **Source:** Human notes, 2026-03-01, characters ${p1.spans[0]!.start}–${p1.spans[0]!.end}`);
     // Statements are still included.
     expect(md).toContain(`### HALV-P1 · ${STATEMENTS.p1}`);
+    // Confirmer names are client personal data and the spec feeds coding agents (D-057).
+    expect(md).not.toContain(NAMES.alice);
+    expect(itemSection(md, "HALV-P1")).toContain("- **Confirmed by:** Client contact (2026-03-03)");
   });
 
   it("neutralizes markdown and HTML injected through statements, quotes and names", () => {

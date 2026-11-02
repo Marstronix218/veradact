@@ -48,7 +48,7 @@ export function agreedItemsMarkdown(view: AgreedView, ctx: ExportContext, level:
   for (const [kind, items] of groupByKind(view.items)) {
     out.push(`${"#".repeat(level)} ${KIND_SECTION[kind]}`, "");
     if (items.length === 0) out.push("None confirmed.", "");
-    for (const item of items) out.push(...itemMarkdown(presentItem(item, ctx), level + 1));
+    for (const item of items) out.push(...itemMarkdown(presentItem(item, ctx, { anonymousContacts: !ctx.engagement.aiEnabled }), level + 1));
   }
   return out;
 }
