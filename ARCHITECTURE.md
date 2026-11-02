@@ -29,7 +29,7 @@ Product spec: [`docs/SPEC.md`](docs/SPEC.md). Decision log: [`DECISIONS.md`](DEC
                        Postgres 16 (docker compose, port 54330) · Mailpit (54331 smtp / 54332 ui)
 ```
 
-Dependency direction: `apps/* → core → db`; `core → ingest, ai, email`; `export → core (types only)`. `core/domain` does no IO and never reads the clock (time is a parameter). Packages are consumed as TypeScript source (no build step); Next uses `transpilePackages`, scripts and the MCP server run on `tsx --env-file`. No DB access from Next middleware (postgres.js needs the Node runtime).
+Dependency direction: `apps/* → core → db`; `core → ingest, ai, email`; `export → core` (types only for the pure renderers; the `@veradact/export/server` loaders also use core and db at runtime, D-048; core never imports export). `core/domain` does no IO and never reads the clock (time is a parameter). Packages are consumed as TypeScript source (no build step); Next uses `transpilePackages`, scripts and the MCP server run on `tsx --env-file`. No DB access from Next middleware (postgres.js needs the Node runtime).
 
 ### 1.1 Conventions every module relies on
 - **Text and offsets.** Source text is normalized once at ingest: Unicode NFC, `\r\n`/`\r` → `\n`. Offsets are JavaScript string indices (UTF-16 code units) into that normalized text. `content_sha256` = SHA-256 over the UTF-8 bytes of the normalized text.
