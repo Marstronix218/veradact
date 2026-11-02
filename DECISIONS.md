@@ -109,3 +109,6 @@ The latest response per contact counts (D-009). Every response remains in the lo
 
 ### D-030 · Orgs are created by an operator script
 `pnpm org:create --name ... --slug ... --admin-email ...` runs with the admin database URL. Self-serve signup is not needed for 10–12 design partners.
+
+### D-031 · `record_candidates` is forced only where the model allows it
+ARCHITECTURE §9.3 specifies a forced tool call. Claude Sonnet 5.5 (the default `ANTHROPIC_MODEL`), Opus 5.5, Fable 5.1 and Mythos 5.1 reject a forced `tool_choice` with HTTP 400. `AnthropicModelClient` therefore forces `record_candidates` on models that accept it and otherwise sends `tool_choice: auto` with `disable_parallel_tool_use`, a prompt instruction to call the tool exactly once, and `strict: true` on the tool so the input is schema-valid. A response without the tool call is retried once, then fails with `no_tool_call`. Server-side refusal fallbacks (a beta) are not enabled. A refusal fails the chunk with `refused`.
