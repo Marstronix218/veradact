@@ -16,7 +16,6 @@
     "migrate:all": "tsx src/migrate.ts --all",
     "reset-test-db": "tsx src/reset-test-db.ts",
     "org:create": "tsx src/scripts/org-create.ts",
-    "seed": "tsx src/seed.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

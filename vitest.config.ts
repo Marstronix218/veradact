@@ -11,6 +11,7 @@ export default defineConfig({
       "packages/ai",
       "packages/export",
       "packages/email",
+      "packages/seed",
       "apps/mcp",
       "apps/web",
     ],
