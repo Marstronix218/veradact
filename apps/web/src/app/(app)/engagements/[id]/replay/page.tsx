@@ -4,6 +4,7 @@ import { asOf, decisionContext, diff, ERASED_CONTACT_NAME, listContacts, readEve
 import { currentCut } from "@veradact/export/server";
 import { Button, Input, Notice, Select } from "@/components";
 import { clock } from "@/lib/clock";
+import { isAfterLocalToday } from "@/lib/dates";
 import { requireEngagement } from "@/lib/engagement";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { KIND_LABELS, STATUS_LABELS } from "@/lib/labels";
@@ -145,7 +146,7 @@ export default async function ReplayPage({ params, searchParams }: { params: Pro
             ) : null}
           </form>
           {p.asOf.error ? <Notice tone="error">That as-of date is not valid; showing the ledger as it is now.</Notice> : null}
-          {p.asOf.at.getTime() > now.getTime() ? <Notice>That date is in the future; the view shows everything recorded so far.</Notice> : null}
+          {isAfterLocalToday(p.asOf.at, now, e.timeZone) ? <Notice>That date is in the future; the view shows everything recorded so far.</Notice> : null}
           <div className="space-y-1">
             <p className="text-sm text-zinc-800" data-testid="replay-as-of">
               Showing the ledger as of <InstantText instant={p.asOf} timeZone={e.timeZone} now={now} /> · time zone <span className="font-mono">{e.timeZone}</span>

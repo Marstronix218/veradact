@@ -82,14 +82,14 @@ function validate(draft: EventDraft, state: EngagementState, engagementId: strin
     throw new DomainError("invalid_event", { type: parsed.type, issues: ["engagement_created is only allowed as the first event"] });
   }
   // A version's content hash is what confirmations bind to (invariant 4): it must be the hash of
-  // the version's content, not whatever the caller put in the payload.
+  // the version's content, not whatever the caller put in the payload. A revision of an item that
+  // does not exist has no kind to hash with, so it is refused rather than left unchecked.
   if (parsed.type === "item_created" || parsed.type === "item_revised") {
     const p = parsed.payload;
     const kind = parsed.type === "item_created" ? parsed.payload.kind : state.items.get(p.item_id)?.kind;
-    if (kind !== undefined) {
-      const expected = itemContentHash({ engagement_id: engagementId, item_id: p.item_id, kind, version: p.version, statement: p.statement, spans: p.spans, manual: p.manual });
-      if (expected !== p.content_hash) throw new DomainError("invalid_event", { type: parsed.type, issues: ["payload.content_hash: does not match the version content"] });
-    }
+    if (kind === undefined) throw new DomainError("item_not_found", { itemId: p.item_id });
+    const expected = itemContentHash({ engagement_id: engagementId, item_id: p.item_id, kind, version: p.version, statement: p.statement, spans: p.spans, manual: p.manual });
+    if (expected !== p.content_hash) throw new DomainError("invalid_event", { type: parsed.type, issues: ["payload.content_hash: does not match the version content"] });
   }
   return parsed;
 }

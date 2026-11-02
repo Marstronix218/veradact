@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clientIpFromForwardedFor, trustedProxyHops } from "./client-ip";
+import { clientIpFromForwardedFor, trustedProxyHops, webTrustedProxyHops } from "./client-ip";
 
 describe("clientIpFromForwardedFor", () => {
   it("takes the entry written by the first trusted proxy, ignoring what the client prepended", () => {
@@ -31,5 +31,21 @@ describe("trustedProxyHops", () => {
     for (const value of ["-1", "1.5", "two", "11", "0x1"]) {
       expect(() => trustedProxyHops({ TRUSTED_PROXY_HOPS: value })).toThrow(/TRUSTED_PROXY_HOPS/);
     }
+  });
+});
+
+describe("webTrustedProxyHops", () => {
+  it("refuses 0 in production, naming the variable, and accepts it elsewhere", () => {
+    expect(() => webTrustedProxyHops({ NODE_ENV: "production", TRUSTED_PROXY_HOPS: "0" })).toThrow(/^Refusing to start in production: TRUSTED_PROXY_HOPS=0/);
+    expect(() => webTrustedProxyHops({ NODE_ENV: "production", TRUSTED_PROXY_HOPS: " 0 " })).toThrow(/TRUSTED_PROXY_HOPS/);
+    expect(webTrustedProxyHops({ NODE_ENV: "development", TRUSTED_PROXY_HOPS: "0" })).toBe(0);
+    expect(webTrustedProxyHops({ TRUSTED_PROXY_HOPS: "0" })).toBe(0);
+  });
+
+  it("accepts one or more hops (and the default) in production, and still rejects invalid values", () => {
+    expect(webTrustedProxyHops({ NODE_ENV: "production" })).toBe(1);
+    expect(webTrustedProxyHops({ NODE_ENV: "production", TRUSTED_PROXY_HOPS: "1" })).toBe(1);
+    expect(webTrustedProxyHops({ NODE_ENV: "production", TRUSTED_PROXY_HOPS: "2" })).toBe(2);
+    expect(() => webTrustedProxyHops({ NODE_ENV: "production", TRUSTED_PROXY_HOPS: "-1" })).toThrow(/whole number/);
   });
 });

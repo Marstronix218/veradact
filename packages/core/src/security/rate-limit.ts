@@ -14,7 +14,8 @@ export type RateLimitScope =
   | "client_page_ip"
   | "client_page_link"
   | "mcp_token"
-  | "mcp_ip";
+  | "mcp_ip"
+  | "user_invite_org";
 
 export interface RateLimitInput {
   scope: RateLimitScope;

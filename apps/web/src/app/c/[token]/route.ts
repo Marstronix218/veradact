@@ -132,6 +132,15 @@ export async function POST(request: NextRequest, { params }: Params): Promise<Re
           }),
         );
       }
+      if (result.status === "stale") {
+        // The request may have been revoked or expired, or the contact erased, meanwhile: re-check the link.
+        const again = await resolveClientLink({ db, token, clock });
+        if (!again.ok) return invalid();
+        return pageFor(await loadClientView(db, again.ctx, { clock }), token, {
+          tone: "error",
+          text: "Something changed while you were reading, so nothing was recorded. Please try again.",
+        });
+      }
       return seeOther(`/c/${token}?step=${decision === "granted" ? "items" : "declined"}`);
     }
 

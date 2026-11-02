@@ -22,6 +22,23 @@ export function trustedProxyHops(env: Record<string, string | undefined> = proce
 }
 
 /**
+ * `trustedProxyHops` for the web app, checked at startup. Next exposes the client address only
+ * through `X-Forwarded-For`, so with 0 every request would key its per-IP rate limits on
+ * "unknown" and one client could exhaust them for everyone: in production 0 is refused (running
+ * the web app without a trusted proxy is unsupported there). The MCP server falls back to the
+ * socket address and keeps accepting 0.
+ */
+export function webTrustedProxyHops(env: Record<string, string | undefined> = process.env): number {
+  const hops = trustedProxyHops(env);
+  if (hops === 0 && env.NODE_ENV === "production") {
+    throw new Error(
+      "Refusing to start in production: TRUSTED_PROXY_HOPS=0 leaves the web app without client addresses, so every request would share one rate-limit key. Run it behind a proxy and set TRUSTED_PROXY_HOPS to the number of trusted proxies that append to X-Forwarded-For (1 or more)",
+    );
+  }
+  return hops;
+}
+
+/**
  * The address the first trusted proxy saw: the entry `hops` places from the right of
  * `X-Forwarded-For` (the leftmost one when the header is shorter). Returns `fallback` (the socket
  * address, or "unknown" where there is none) when `hops` is 0 or the header is empty.

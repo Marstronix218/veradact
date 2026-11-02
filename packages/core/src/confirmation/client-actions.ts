@@ -163,45 +163,60 @@ export interface ClientAuthorizeInput extends ClientLinkHandle {
   appUrl: string;
 }
 
-export type ClientAuthorizeResult = { status: "recorded"; decision: "granted" | "declined" } | { status: "text_changed" };
+export type ClientAuthorizeResult =
+  | { status: "recorded"; decision: "granted" | "declined" }
+  | { status: "text_changed" }
+  /** The request was revoked or expired, or the contact erased, since the link was resolved. Nothing was recorded. */
+  | { status: "stale" };
 
 /**
  * Records the contact's decision with the exact rendered text and its version (D-019). A decline
  * notifies the member who sent the request (notification row in the same transaction + email).
+ * Rule violations from races answer `stale` instead of throwing, like `clientSubmit`.
  */
 export async function clientAuthorize(input: ClientAuthorizeInput): Promise<ClientAuthorizeResult> {
   const { db, link, clock } = input;
-  const outcome = await withTenant(db, { orgId: link.orgId }, async (tx) => {
-    const names = await loadLinkNames(tx, link);
-    const text = renderAuthorizationText({ vendorName: names.vendorName, engagementName: names.engagementName, clientName: names.clientName });
-    if (input.shownTextSha256 !== null && input.shownTextSha256 !== sha256Hex(text)) return { changed: true as const, names };
-    const result = await recordAuthorization(
-      { tx, orgId: link.orgId, clock },
-      {
-        engagementId: link.engagementId,
-        requestId: link.requestId,
-        contactId: link.contactId,
-        decision: input.decision,
-        text,
-        textVersion: AUTHORIZATION_TEXT_VERSION,
-        evidence: input.evidence,
-      },
-    );
-    if (input.decision === "declined" && names.requester) {
-      await insertNotifications(tx, [
+  let outcome: { changed: boolean; names: LinkNames };
+  try {
+    outcome = await withTenant(db, { orgId: link.orgId }, async (tx) => {
+      const names = await loadLinkNames(tx, link);
+      const text = renderAuthorizationText({ vendorName: names.vendorName, engagementName: names.engagementName, clientName: names.clientName });
+      if (input.shownTextSha256 !== null && input.shownTextSha256 !== sha256Hex(text)) return { changed: true as const, names };
+      const result = await recordAuthorization(
+        { tx, orgId: link.orgId, clock },
         {
-          orgId: link.orgId,
-          userId: names.requester.userId,
           engagementId: link.engagementId,
-          kind: "authorization_declined",
-          itemId: null,
+          requestId: link.requestId,
           contactId: link.contactId,
-          createdAt: result.events[0]!.recordedAt,
+          decision: input.decision,
+          text,
+          textVersion: AUTHORIZATION_TEXT_VERSION,
+          evidence: input.evidence,
         },
-      ]);
+      );
+      if (input.decision === "declined" && names.requester) {
+        await insertNotifications(tx, [
+          {
+            orgId: link.orgId,
+            userId: names.requester.userId,
+            engagementId: link.engagementId,
+            kind: "authorization_declined",
+            itemId: null,
+            contactId: link.contactId,
+            createdAt: result.events[0]!.recordedAt,
+          },
+        ]);
+      }
+      return { changed: false as const, names };
+    });
+  } catch (error) {
+    if (!isDomainError(error)) throw error;
+    if (!(STALE_CODES as readonly string[]).includes(error.code)) {
+      logError("confirmation.authorize_rejected", error, { linkId: logId(link.linkId), code: error.code });
     }
-    return { changed: false as const, names };
-  });
+    // Nothing was recorded; never a 500 for a rule the client could trip.
+    return { status: "stale" };
+  }
   if (outcome.changed) return { status: "text_changed" };
 
   const requester = outcome.names.requester;
@@ -328,8 +343,9 @@ function receiptFrom(state: EngagementState, submissionId: string, names: LinkNa
 
 /**
  * Rule violations a client can hit through races (an item revised, the request revoked or expired,
- * the contact erased while the form was open) or a tampered form. Nothing was recorded; the page
- * is shown again (and a link that is no longer valid then gets the 410 page).
+ * the contact erased while the form was open) or a tampered form, in `clientSubmit` and
+ * `clientAuthorize`. Nothing was recorded; the page is shown again (and a link that is no longer
+ * valid then gets the 410 page).
  */
 const STALE_CODES = [
   "version_mismatch",

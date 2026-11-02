@@ -11,7 +11,8 @@ const MAX_USER_AGENT_LENGTH = 512;
  * Client IP for rate limits and evidence: the `X-Forwarded-For` entry written by the first trusted
  * proxy (`TRUSTED_PROXY_HOPS`, default 1), else "unknown". Next fills the header with the socket
  * address when it is absent; with `TRUSTED_PROXY_HOPS=0` (no proxy) it is ignored entirely, because
- * a client can send it.
+ * a client can send it — every request is then "unknown", which is why production refuses 0 at
+ * startup (`webTrustedProxyHops`, instrumentation-node.ts).
  */
 export function clientIpFrom(h: HeaderSource): string {
   return clientIpFromForwardedFor(h.get("x-forwarded-for"), trustedProxyHops(), "unknown");

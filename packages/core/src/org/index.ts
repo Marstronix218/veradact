@@ -13,6 +13,7 @@ export {
   deactivateUser,
   getCurrentUser,
   INVITE_CONFLICT_MESSAGE,
+  INVITE_RATE_LIMIT,
   inviteUser,
   listUsers,
   USER_NAME_MAX_LENGTH,

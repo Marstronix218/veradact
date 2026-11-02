@@ -9,9 +9,9 @@ import { createApiToken, resolveApiToken } from "../api-tokens";
 import type { AuthContext } from "../auth/context";
 import { createSession, resolveSession } from "../auth/session";
 import { requestMagicLink } from "../auth/magic-link";
-import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../errors";
+import { ConflictError, ForbiddenError, NotFoundError, RateLimitedError, ValidationError } from "../errors";
 import { getOrgSettings, updateOrgSettings } from "./settings";
-import { deactivatedEmail, deactivateUser, getCurrentUser, INVITE_CONFLICT_MESSAGE, inviteUser, listUsers } from "./users";
+import { deactivatedEmail, deactivateUser, getCurrentUser, INVITE_CONFLICT_MESSAGE, INVITE_RATE_LIMIT, inviteUser, listUsers } from "./users";
 import { withTenant } from "@veradact/db";
 
 const app = testDb();
@@ -213,6 +213,31 @@ describe("users", () => {
       inviteUser({ ...base, ctx: await memberOf(t), email: `x-${randomUUID()}@example.test` }),
     ).rejects.toBeInstanceOf(ForbiddenError);
     expect(await auditsOf(t.org.id, "user.invite")).toHaveLength(0);
+  });
+
+  it("limits invitation attempts to 20 per hour per org, conflicts included, without affecting other orgs", async () => {
+    expect(INVITE_RATE_LIMIT).toEqual({ limit: 20, windowSeconds: 3600 });
+    const t = await createTestTenant(admin.db);
+    const other = await createTestTenant(admin.db);
+    const mail = new MemoryEmailProvider();
+    // A fixed instant 10 minutes into an hour-long window.
+    const at = (iso: string) => () => new Date(iso);
+    const invite = (tenant: TestTenant, email: string, clock = at("2026-06-01T12:10:00.000Z")) =>
+      inviteUser({ db: app.db, ctx: adminCtx(tenant), clock, emailProvider: mail, appUrl: APP_URL, email, name: "Someone", role: "member" });
+
+    // Probing an address that belongs to another org counts like any other attempt.
+    await expect(invite(t, other.user.email)).rejects.toBeInstanceOf(ConflictError);
+    for (let i = 1; i < INVITE_RATE_LIMIT.limit; i++) await invite(t, `bulk-${i}-${randomUUID()}@example.test`);
+    const limited = (await invite(t, `one-more-${randomUUID()}@example.test`).catch((error: unknown) => error)) as RateLimitedError;
+    expect(limited).toBeInstanceOf(RateLimitedError);
+    expect(limited.retryAfterSeconds).toBe(50 * 60);
+    // The same answer for a probe of a foreign address: nothing to learn once limited.
+    expect(await invite(t, other.user.email).catch((error: unknown) => error)).toBeInstanceOf(RateLimitedError);
+    expect(await auditsOf(t.org.id, "user.invite")).toHaveLength(INVITE_RATE_LIMIT.limit - 1);
+
+    // Other orgs have their own window, and the next hour starts a new one.
+    await expect(invite(other, `x-${randomUUID()}@example.test`)).resolves.toMatchObject({ emailSent: true });
+    await expect(invite(t, `next-hour-${randomUUID()}@example.test`, at("2026-06-01T13:00:00.000Z"))).resolves.toMatchObject({ emailSent: true });
   });
 
   it("deactivation anonymizes the user, revokes sessions and API tokens, and audits", async () => {

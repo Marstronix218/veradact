@@ -22,3 +22,15 @@ export function localDateString(instant: Date, timeZone: string): string {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${local.getFullYear()}-${pad(local.getMonth() + 1)}-${pad(local.getDate())}`;
 }
+
+/**
+ * True when `instant` falls on a later calendar day in `timeZone` than `now` does. A replay "as of"
+ * today means the end of today, which is after `now` but not in the future.
+ */
+export function isAfterLocalToday(instant: Date, now: Date, timeZone: string): boolean {
+  const day = (d: Date) => {
+    const local = new TZDate(d.getTime(), timeZone);
+    return local.getFullYear() * 10_000 + (local.getMonth() + 1) * 100 + local.getDate();
+  };
+  return day(instant) > day(now);
+}

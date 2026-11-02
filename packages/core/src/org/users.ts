@@ -6,8 +6,9 @@ import type { EmailProvider } from "@veradact/email";
 import { writeAudit } from "../audit";
 import { requireAdmin, type AuthContext } from "../auth/context";
 import { normalizeEmail } from "../auth/email-address";
-import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../errors";
+import { ConflictError, ForbiddenError, NotFoundError, RateLimitedError, ValidationError } from "../errors";
 import { log, logError, logId } from "../log";
+import { checkRateLimit } from "../security/rate-limit";
 
 export interface OrgUser {
   id: string;
@@ -66,9 +67,16 @@ export interface InviteUserInput {
 export const INVITE_CONFLICT_MESSAGE = "That email address could not be added. Check it, or use a different address.";
 
 /**
+ * Invitation attempts per org (ARCHITECTURE §14). Conflicts count too: they bound how fast an
+ * admin can probe whether addresses belong to users elsewhere (residual risk in DECISIONS.md).
+ */
+export const INVITE_RATE_LIMIT = { limit: 20, windowSeconds: 60 * 60 } as const;
+
+/**
  * Admin only. Creates the user and audits `user.invite`, then sends a welcome email with
  * the login URL. The user exists even if delivery fails (`emailSent: false`); they can
- * request a sign-in link from the login page.
+ * request a sign-in link from the login page. At most `INVITE_RATE_LIMIT` attempts per org
+ * (`RateLimitedError` beyond it).
  */
 export async function inviteUser(input: InviteUserInput): Promise<{ user: OrgUser; emailSent: boolean }> {
   const { db, ctx, clock, emailProvider, appUrl, role } = input;
@@ -81,6 +89,8 @@ export async function inviteUser(input: InviteUserInput): Promise<{ user: OrgUse
   }
   if (!(userRoles as readonly string[]).includes(role)) throw new ValidationError("Choose a role.", "role");
   const now = clock();
+  const limit = await checkRateLimit(db, { scope: "user_invite_org", id: ctx.orgId, now, ...INVITE_RATE_LIMIT });
+  if (!limit.allowed) throw new RateLimitedError(limit.retryAfterSeconds, "Too many invitations in this hour. Try again later.");
 
   let created: { user: OrgUser; orgName: string };
   try {

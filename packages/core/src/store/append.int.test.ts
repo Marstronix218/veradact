@@ -138,6 +138,22 @@ describe("appendEvents", () => {
     expect(await withTenant(app.db, { orgId: e.orgId }, (tx) => readEvents(tx, e.engagementId))).toHaveLength(3);
   });
 
+  it("rejects a revision of an item that does not exist with item_not_found instead of skipping the hash check", async () => {
+    const e = await freshEngagement();
+    const clock = steppingClock(new Date("2026-03-02T15:00:00.000Z"));
+    await withTenant(app.db, { orgId: e.orgId }, (tx) => appendEvents(tx, e.engagementId, [e.genesis], { clock }));
+    const itemId = randomUUID();
+    const orphan: EventDraft = {
+      type: "item_revised",
+      actor: { type: "user", id: e.userId },
+      payload: { item_id: itemId, version: 2, statement: "Requirement 9, revised", spans: [], manual: { entered_by: e.userId }, provenance: { via: "manual" }, reason_code: "correction", content_hash: "c".repeat(64), previous_content_hash: "d".repeat(64) },
+    };
+    const error = await withTenant(app.db, { orgId: e.orgId }, (tx) => appendEvents(tx, e.engagementId, [orphan], { clock })).catch((err: unknown) => err);
+    expect(error).toBeInstanceOf(DomainError);
+    expect(error).toMatchObject({ code: "item_not_found", details: { itemId } });
+    expect(await withTenant(app.db, { orgId: e.orgId }, (tx) => readEvents(tx, e.engagementId))).toHaveLength(1);
+  });
+
   it("requires engagement_created as the genesis event and only there", async () => {
     const e = await freshEngagement();
     const clock = steppingClock(new Date("2026-03-02T15:00:00.000Z"));

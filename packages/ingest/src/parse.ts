@@ -112,7 +112,7 @@ function fromLines(lines: Line[], allowListMarker: boolean): { text: string; seg
 
 async function docxText(bytes: Uint8Array, maxBytes: number): Promise<string> {
   // Bounds what mammoth/JSZip will inflate (decompression bombs) before it runs.
-  assertZipWithinLimits(bytes);
+  await assertZipWithinLimits(bytes);
   let text: string;
   try {
     const result = await mammoth.extractRawText({

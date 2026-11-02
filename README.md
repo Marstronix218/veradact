@@ -133,7 +133,7 @@ fixtures/         synthetic transcripts, seed data and eval sets
 See ARCHITECTURE §17. In short: any Node 22 host for `apps/web` and `apps/mcp`, managed Postgres 16 (migrations with the owner role, the apps with `veradact_app` only), any SMTP provider (`EMAIL_PROVIDER=smtp`, `SMTP_URL`, `EMAIL_FROM`), and a scheduler calling the cron routes. Also:
 
 - Generate `SESSION_SECRET`, `LINK_SIGNING_SECRET` and `CRON_SECRET` with `openssl rand -base64 32`. In production the app refuses to start with the `.env.example` placeholders.
-- Set `APP_URL` to the public https URL and `TRUSTED_PROXY_HOPS` to the number of proxies that append to `X-Forwarded-For` (1 for a single load balancer or platform router such as Fly, Render, Railway or Heroku; 2 for a CDN in front of a load balancer). Rate limits and evidence IPs depend on it.
+- Set `APP_URL` to the public https URL and `TRUSTED_PROXY_HOPS` to exactly the number of trusted proxies that append to `X-Forwarded-For` (1 for a single load balancer or platform router such as Fly, Render, Railway or Heroku; 2 for a CDN in front of a load balancer). Rate limits and evidence IPs depend on it. Running without a proxy is unsupported in production: with `TRUSTED_PROXY_HOPS=0` every web request would share one rate-limit key, so the web app refuses to start (ARCHITECTURE §14).
 - **Do not let proxies, CDNs or load balancers log the path of `/c/*` or `/auth/verify` requests**: client links and magic links carry their token in the URL.
 
 ## Troubleshooting

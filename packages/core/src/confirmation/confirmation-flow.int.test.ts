@@ -326,6 +326,28 @@ describe("authorization", () => {
     expect((await loadClientView(app.db, f.links[0]!, { clock: f.e.ctx.clock })).authorization.status).toBe("granted");
     expect((await submit(f, [respond(f.items[0]!, "confirm")])).status).toBe("recorded");
   });
+
+  it("answers races (request revoked or expired, contact erased) with stale instead of throwing, and records nothing", async () => {
+    const f = await flow(3);
+    const decline = (i: number, clock = f.e.ctx.clock) =>
+      clientAuthorize({ ...handle(f, i), clock, decision: "declined", shownTextSha256: null, evidence: EVIDENCE, emailProvider: f.email, appUrl: APP_URL });
+    const sentBefore = f.email.messages.length;
+    // The member revokes contact 0's link while the authorization page is open (request_revoked).
+    await revokeConfirmation(f.e.ctx, { engagementId: f.e.engagementId, requestId: f.requestId, contactId: f.contacts[0]!.contactId });
+    expect(await grant(f, 0)).toEqual({ status: "stale" });
+    // Contact 1 is erased while the page is open (contact_erased).
+    await eraseContact(f.e.ctx, { engagementId: f.e.engagementId, contactId: f.contacts[1]!.contactId });
+    expect(await decline(1)).toEqual({ status: "stale" });
+    // The request expires while contact 2 reads (request_expired; the request expires on March 16, 2026).
+    expect(await decline(2, () => new Date("2026-04-01T12:00:00.000Z"))).toEqual({ status: "stale" });
+
+    const events = await withTenant(app.db, { orgId: f.e.orgId }, (tx) => readEvents(tx, f.e.engagementId));
+    expect(events.filter((ev) => ev.type === "authorization_granted" || ev.type === "authorization_declined")).toHaveLength(0);
+    await withTenant(app.db, { orgId: f.e.orgId }, async (tx) => {
+      expect(await listNotifications(tx, f.e.userId)).toEqual([]);
+    });
+    expect(f.email.messages.length).toBe(sentBefore);
+  });
 });
 
 describe("clientSubmit", () => {
