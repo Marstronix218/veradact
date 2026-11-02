@@ -53,7 +53,10 @@ describe("canonicalJson", () => {
         const entries = Object.entries(v);
         const rotated = entries.map((_, i) => entries[(i + seed) % entries.length]!).reverse();
         const out: Record<string, unknown> = {};
-        for (const [k, x] of rotated) out[k] = shuffleKeys(x, seed + 1);
+        // defineProperty, not assignment: a generated "__proto__" key must stay an own property.
+        for (const [k, x] of rotated) {
+          Object.defineProperty(out, k, { value: shuffleKeys(x, seed + 1), enumerable: true, writable: true, configurable: true });
+        }
         return out;
       }
       return v;
@@ -66,6 +69,11 @@ describe("canonicalJson", () => {
       }),
       { numRuns: 200 },
     );
+  });
+
+  it("keeps an own __proto__ key (JSON.parse creates one; it must hash like any other key)", () => {
+    const parsed = JSON.parse('{"":{"__proto__":""}}') as unknown;
+    expect(canonicalJson(parsed)).toBe('{"":{"__proto__":""}}');
   });
 
   describe("rejections", () => {
