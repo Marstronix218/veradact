@@ -10,7 +10,13 @@ export async function addContactAction(_prev: FormState, formData: FormData): Pr
   return runAction(async () => {
     const ctx = await commandContext();
     const engagementId = field(formData, "engagementId");
-    await addContact(ctx, { engagementId, name: field(formData, "name"), email: field(formData, "email"), title: field(formData, "title") || null });
+    await addContact(ctx, {
+      engagementId,
+      name: field(formData, "name"),
+      email: field(formData, "email"),
+      title: field(formData, "title") || null,
+      acknowledgeOutsideDomains: formData.get("acknowledgeOutsideDomains") === "on",
+    });
     revalidatePath(`/engagements/${engagementId}/contacts`);
     return "Contact added.";
   });

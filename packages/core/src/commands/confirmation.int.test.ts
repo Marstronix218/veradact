@@ -13,6 +13,7 @@ import { recordAuthorization, recordClientResponses, requestConfirmation, revoke
 import { addContact } from "./contacts";
 import { createItem, reviseItem, withdrawItem } from "./items";
 import { eraseContact } from "./privacy";
+import { AUTHORIZATION_TEXT_VERSION } from "../confirmation/authorization-text";
 
 const app = testDb();
 const admin = adminTestDb();
@@ -51,7 +52,7 @@ async function scenario() {
   const { contactId } = await addContact(e.ctx, { engagementId: e.engagementId, name: "Ada Client", email: "Ada@Client.example", title: "Ops lead" });
   const request = await requestConfirmation(e.ctx, { engagementId: e.engagementId, items: [{ itemId: item.itemId, version: 1, contentHash: item.contentHash }], contactIds: [contactId] });
   const client = clientContext(e.ctx);
-  await recordAuthorization(client, { engagementId: e.engagementId, requestId: request.requestId, contactId, decision: "granted", text: AUTH_TEXT, textVersion: "v1", evidence: EVIDENCE });
+  await recordAuthorization(client, { engagementId: e.engagementId, requestId: request.requestId, contactId, decision: "granted", text: AUTH_TEXT, textVersion: AUTHORIZATION_TEXT_VERSION, evidence: EVIDENCE });
   const respond = (responses: RecordClientResponsesInput["responses"], overrides: Partial<RecordClientResponsesInput> = {}) =>
     recordClientResponses(client, {
       channel: "email_link",
@@ -132,7 +133,7 @@ describe("recordClientResponses", () => {
     const { contactId } = await addContact(e.ctx, { engagementId: e.engagementId, name: "Ada Client", email: "ada@client.example" });
     const request = await requestConfirmation(e.ctx, { engagementId: e.engagementId, items: [{ itemId: a.itemId }, { itemId: b.itemId }], contactIds: [contactId] });
     const client = clientContext(e.ctx);
-    await recordAuthorization(client, { engagementId: e.engagementId, requestId: request.requestId, contactId, decision: "granted", text: AUTH_TEXT, textVersion: "v1", evidence: EVIDENCE });
+    await recordAuthorization(client, { engagementId: e.engagementId, requestId: request.requestId, contactId, decision: "granted", text: AUTH_TEXT, textVersion: AUTHORIZATION_TEXT_VERSION, evidence: EVIDENCE });
     const sid = submissionId();
     const result = await recordClientResponses(client, {
       channel: "email_link",
@@ -192,6 +193,31 @@ describe("recordClientResponses", () => {
     expect([x.duplicate, y.duplicate].sort()).toEqual([false, true]);
   });
 
+  it("treats a submission id as a duplicate only for the same contact and request", async () => {
+    const { e, item, request, respond, client, contactId } = await scenario();
+    // A dispute keeps the item requestable for the second request below.
+    const r = [{ itemId: item.itemId, version: 1, contentHash: item.contentHash, decision: "disputed" as const, comment: "Not yet." }];
+    const sid = submissionId();
+    await respond(r, { submissionId: sid });
+    // Another contact on the same request reusing the id (a copied form) is rejected, not a no-op.
+    const { contactId: other } = await addContact(e.ctx, { engagementId: e.engagementId, name: "Bo Client", email: "bo@client.example" });
+    const req2 = await requestConfirmation(e.ctx, { engagementId: e.engagementId, items: [{ itemId: item.itemId }], contactIds: [contactId, other] });
+    await recordAuthorization(client, { engagementId: e.engagementId, requestId: req2.requestId, contactId: other, decision: "granted", text: AUTH_TEXT, textVersion: AUTHORIZATION_TEXT_VERSION, evidence: EVIDENCE });
+    expect(await codeOf(respond(r, { submissionId: sid, contactId: other, requestId: req2.requestId }))).toBe("submission_mismatch");
+    // The same contact on another request: also not the recorded submission.
+    expect(await codeOf(respond(r, { submissionId: sid, requestId: req2.requestId }))).toBe("submission_mismatch");
+    expect((await respond(r, { submissionId: sid, requestId: request.requestId })).duplicate).toBe(true);
+  });
+
+  it("requires a grant of the current authorization text version in every channel (D-019)", async () => {
+    const { e, item, request, respond, client, contactId } = await scenario();
+    await recordAuthorization(client, { engagementId: e.engagementId, requestId: request.requestId, contactId, decision: "granted", text: AUTH_TEXT, textVersion: "auth.v0", evidence: EVIDENCE });
+    const r = [{ itemId: item.itemId, version: 1, contentHash: item.contentHash, decision: "confirmed" as const }];
+    expect(await codeOf(respond(r))).toBe("not_authorized");
+    await recordAuthorization(client, { engagementId: e.engagementId, requestId: request.requestId, contactId, decision: "granted", text: AUTH_TEXT, textVersion: AUTHORIZATION_TEXT_VERSION, evidence: EVIDENCE });
+    expect((await respond(r)).duplicate).toBe(false);
+  });
+
   it("a contact may change their response; the latest per contact counts (D-029)", async () => {
     const { e, item, respond } = await scenario();
     await respond([{ itemId: item.itemId, version: 1, contentHash: item.contentHash, decision: "disputed", comment: "Not quite." }]);
@@ -209,14 +235,14 @@ describe("recordClientResponses", () => {
     expect(await codeOf(respond([{ ...r[0]!, contentHash: "c".repeat(64) }]))).toBe("item_not_in_request");
 
     // Declined authorization (latest wins).
-    await recordAuthorization(client, { engagementId: e.engagementId, requestId: request.requestId, contactId, decision: "declined", text: AUTH_TEXT, textVersion: "v1", evidence: EVIDENCE });
+    await recordAuthorization(client, { engagementId: e.engagementId, requestId: request.requestId, contactId, decision: "declined", text: AUTH_TEXT, textVersion: AUTHORIZATION_TEXT_VERSION, evidence: EVIDENCE });
     expect(await codeOf(respond(r))).toBe("not_authorized");
-    await recordAuthorization(client, { engagementId: e.engagementId, requestId: request.requestId, contactId, decision: "granted", text: AUTH_TEXT, textVersion: "v1", evidence: EVIDENCE });
+    await recordAuthorization(client, { engagementId: e.engagementId, requestId: request.requestId, contactId, decision: "granted", text: AUTH_TEXT, textVersion: AUTHORIZATION_TEXT_VERSION, evidence: EVIDENCE });
 
     // A second contact who never authorized.
     const { contactId: other } = await addContact(e.ctx, { engagementId: e.engagementId, name: "Bo Client", email: "bo@client.example" });
     expect(await codeOf(respond(r, { contactId: other }))).toBe("not_authorized");
-    expect(await codeOf(recordAuthorization(client, { engagementId: e.engagementId, requestId: request.requestId, contactId: other, decision: "granted", text: AUTH_TEXT, textVersion: "v1", evidence: EVIDENCE }))).toBe(
+    expect(await codeOf(recordAuthorization(client, { engagementId: e.engagementId, requestId: request.requestId, contactId: other, decision: "granted", text: AUTH_TEXT, textVersion: AUTHORIZATION_TEXT_VERSION, evidence: EVIDENCE }))).toBe(
       "contact_not_in_request",
     );
 
@@ -247,7 +273,7 @@ describe("recordClientResponses", () => {
       expiresAt: new Date(e.ctx.clock().getTime() + 3_000),
     });
     const client = clientContext(e.ctx);
-    await recordAuthorization(client, { engagementId: e.engagementId, requestId: request.requestId, contactId, decision: "granted", text: AUTH_TEXT, textVersion: "v1", evidence: EVIDENCE });
+    await recordAuthorization(client, { engagementId: e.engagementId, requestId: request.requestId, contactId, decision: "granted", text: AUTH_TEXT, textVersion: AUTHORIZATION_TEXT_VERSION, evidence: EVIDENCE });
     e.ctx.clock();
     e.ctx.clock();
     const code = await codeOf(

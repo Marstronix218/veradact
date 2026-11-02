@@ -32,6 +32,8 @@ describe("renderRecordPdf", () => {
     expect(text).toContain(record.verification.headHash);
     expect(text).toContain(ctx.head.hash);
     expect(text).toContain("Hash-chain verification: OK");
+    expect(text).toContain(`${record.contentHashes.checked} of ${record.contentHashes.checked} verified`);
+    expect(record.authorizations.length).toBeGreaterThan(0);
     for (const e of record.events) expect(text).toContain(e.hash);
     const pages = pageCount(text);
     expect(pages).toBeGreaterThan(0);

@@ -6,7 +6,7 @@ import { eq, sql } from "drizzle-orm";
 import { afterAll, describe, expect, it } from "vitest";
 import { event, withTenant } from "@veradact/db";
 import { adminTestDb, catchPgError, createTestEngagement, testDb } from "@veradact/db/testing";
-import { emptyState, fold, GENESIS_PREV_HASH, projectRows, type EventDraft } from "../domain";
+import { emptyState, fold, GENESIS_PREV_HASH, itemContentHash, projectRows, type EventDraft } from "../domain";
 import { clockFrom, steppingClock } from "../domain/testing";
 import { DomainError } from "../errors";
 import { createLedgerTenant } from "../test-support/ledger";
@@ -28,23 +28,20 @@ async function freshEngagement() {
     payload: { engagement_id: row.id, short_code: "TEST", name: "Synthetic engagement", client_name: "Fictional Client Co", time_zone: "UTC" },
   };
   const rename = (name: string): EventDraft => ({ type: "engagement_updated", actor: { type: "user", id: tenant.userId }, payload: { name } });
-  const manualItem = (n: number): EventDraft => ({
-    type: "item_created",
-    actor: { type: "user", id: tenant.userId },
-    payload: {
-      item_id: randomUUID(),
-      short_id: `TEST-R${n}`,
-      kind: "requirement",
-      version: 1,
-      statement: `Requirement ${n}`,
-      spans: [],
-      manual: { entered_by: tenant.userId },
-      depends_on: [],
-      provenance: { via: "manual" },
-      // Hash correctness is the commands' job; the store only needs a well-formed digest.
-      content_hash: "a".repeat(64),
-    },
-  });
+  const manualItem = (n: number): EventDraft => {
+    const content = { item_id: randomUUID(), kind: "requirement" as const, version: 1 as const, statement: `Requirement ${n}`, spans: [], manual: { entered_by: tenant.userId } };
+    return {
+      type: "item_created",
+      actor: { type: "user", id: tenant.userId },
+      payload: {
+        ...content,
+        short_id: `TEST-R${n}`,
+        depends_on: [],
+        provenance: { via: "manual" },
+        content_hash: itemContentHash({ engagement_id: row.id, ...content }),
+      },
+    };
+  };
   return { ...tenant, engagementId: row.id, genesis, rename, manualItem };
 }
 
@@ -116,6 +113,29 @@ describe("appendEvents", () => {
     expect((error as DomainError).message).not.toContain("ok");
     const stored = await withTenant(app.db, { orgId: e.orgId }, (tx) => readEvents(tx, e.engagementId));
     expect(stored).toHaveLength(1);
+  });
+
+  it("rejects an item version whose content_hash is not the hash of its content", async () => {
+    const e = await freshEngagement();
+    const clock = steppingClock(new Date("2026-03-02T15:00:00.000Z"));
+    await withTenant(app.db, { orgId: e.orgId }, (tx) => appendEvents(tx, e.engagementId, [e.genesis, e.manualItem(1)], { clock }));
+    const forged = e.manualItem(2);
+    (forged.payload as { content_hash: string }).content_hash = "a".repeat(64);
+    const created = await withTenant(app.db, { orgId: e.orgId }, (tx) => appendEvents(tx, e.engagementId, [forged], { clock })).catch((err: unknown) => err);
+    expect(created).toMatchObject({ code: "invalid_event", details: { type: "item_created" } });
+
+    const [stored] = (await withTenant(app.db, { orgId: e.orgId }, (tx) => readEvents(tx, e.engagementId))).filter((ev) => ev.type === "item_created");
+    const v1 = stored!.payload as { item_id: string; content_hash: string };
+    const revision = (contentHash: string): EventDraft => ({
+      type: "item_revised",
+      actor: { type: "user", id: e.userId },
+      payload: { item_id: v1.item_id, version: 2, statement: "Requirement 1, revised", spans: [], manual: { entered_by: e.userId }, provenance: { via: "manual" }, reason_code: "correction", content_hash: contentHash, previous_content_hash: v1.content_hash },
+    });
+    const revised = await withTenant(app.db, { orgId: e.orgId }, (tx) => appendEvents(tx, e.engagementId, [revision("b".repeat(64))], { clock })).catch((err: unknown) => err);
+    expect(revised).toMatchObject({ code: "invalid_event", details: { type: "item_revised" } });
+    const good = itemContentHash({ engagement_id: e.engagementId, item_id: v1.item_id, kind: "requirement", version: 2, statement: "Requirement 1, revised", spans: [], manual: { entered_by: e.userId } });
+    await withTenant(app.db, { orgId: e.orgId }, (tx) => appendEvents(tx, e.engagementId, [revision(good)], { clock }));
+    expect(await withTenant(app.db, { orgId: e.orgId }, (tx) => readEvents(tx, e.engagementId))).toHaveLength(3);
   });
 
   it("requires engagement_created as the genesis event and only there", async () => {

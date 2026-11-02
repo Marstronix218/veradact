@@ -36,12 +36,21 @@ describe("normalizeJurisdiction", () => {
     expect(normalizeJurisdiction(raw)).toBe(code);
   });
 
-  it.each(["", "C", "Californa", "USA-CA", "U.S.", "Germany", "DE-BY"])("does not recognize %j", (raw) => {
+  it.each(["", "C", "Californa", "USA-CA", "U.S.", "Germany", "DE-BY", "US", " us ", "USA", "United States", "US-ZZ", "us-xx", "US_PR"])("does not recognize %j", (raw) => {
     expect(normalizeJurisdiction(raw)).toBeNull();
   });
 });
 
 describe("evaluateConsent", () => {
+  it("treats the whole United States as an unknown jurisdiction (it does not say which state's law applies)", () => {
+    for (const where of ["US", "USA", "United States", "US-ZZ"]) {
+      const r = evaluateConsent({ ...transcript, sourceType: "machine_transcript", jurisdictions: [where], jurisdictionsKnown: true }, DEFAULT_CONSENT_POLICY);
+      expect(r, where).toMatchObject({ decision: "blocked", rule: "unknown_jurisdiction_without_consent", jurisdictionsKnown: false, unrecognizedJurisdictions: [where] });
+    }
+    // Attesting consent still lets the uploader proceed.
+    expect(evaluateConsent({ ...transcript, sourceType: "machine_transcript", allParticipantsConsented: true, jurisdictions: ["US"] }, DEFAULT_CONSENT_POLICY).decision).toBe("allowed");
+  });
+
   it("has the default all-party list", () => {
     expect(DEFAULT_ALL_PARTY_STATES).toEqual(["CA", "CT", "DE", "FL", "IL", "MD", "MA", "MT", "NV", "NH", "OR", "PA", "WA"]);
     expect(DEFAULT_CONSENT_POLICY.blockUnknownJurisdictions).toBe(true);

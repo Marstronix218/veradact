@@ -17,6 +17,8 @@ export interface EngagementView {
   orgAiEnabled: boolean;
   /** AI extraction runs only when both switches are on (ARCHITECTURE §9.3). */
   aiActive: boolean;
+  /** Contacts outside these need an acknowledgement (D-057); empty = no check. */
+  clientEmailDomains: string[];
 }
 
 /** The engagement in the signed-in user's org, or null (unknown id or another tenant). */
@@ -37,6 +39,7 @@ export const getEngagement = cache(async (id: string): Promise<EngagementView | 
       aiEnabled: row.aiEnabled,
       orgAiEnabled,
       aiActive: row.aiEnabled && orgAiEnabled,
+      clientEmailDomains: row.clientEmailDomains,
     };
   });
 });

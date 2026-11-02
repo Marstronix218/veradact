@@ -222,11 +222,11 @@ Rule: **anything that identifies or was authored by a client contact, all source
 | member explanations | `event_note` | `reason_code` enum | retention (with source) or never |
 | item statement | event payload | statement | not erasable: the vendor-authored agreement itself; UI warns not to include personal data (D-012) |
 
-- `eraseContact(contactId)`: delete `contact_pii` (with its HMAC key), the contact's `confirmation_evidence` and `response_comment` rows, null `sent_to_email`, revoke links, set `client_contact.erased_at`, append `contact_erased`, audit. Exports render "Erased contact".
-- `redactSource(sourceId, reasonCode)`: delete `source_content` and pending candidates from that source, append `source_redacted`, audit. Item versions keep their spans; the UI shows "source redacted on <date>" instead of the quote.
+- `eraseContact(contactId)` (admin only, D-057): delete `contact_pii` (with its HMAC key), the contact's `confirmation_evidence` and `response_comment` rows, null `sent_to_email`, revoke links, set `client_contact.erased_at`, append `contact_erased`, audit. Exports render "Erased contact".
+- `redactSource(sourceId, reasonCode)`: delete `source_content` and every candidate from that source (pending and decided rows all copy its text), append `source_redacted`, audit. Item versions keep their spans; the UI shows "source redacted on <date>" instead of the quote.
 - Record exports verify each `evidence_commitment` against its evidence snapshot: `verified`, `erased` or `mismatch`.
 - Vendor users: deactivation anonymizes `app_user.email/name`; events reference user ids only.
-- Retention: `org.retention_days`, measured from the source's `recorded_at`; the job redacts older sources (`reason_code: 'retention'`) and deletes their candidates.
+- Retention: `org.retention_days`, measured from the source's `recorded_at`; `runRetention` (`core/jobs/retention.ts`) redacts older sources through `redactSource` (`reason_code: 'retention'`, system actor), which deletes their text and candidates; it is idempotent (redacted sources are skipped) and also prunes expired `rate_limit_bucket` windows. Run daily via `POST /api/cron/retention` or `pnpm jobs:run`.
 
 ---
 
@@ -250,7 +250,7 @@ Member selects pending/disputed items + contacts → `requestConfirmation` valid
 `v1.<link_id>.<exp_unix>.<sig>`, `sig = base64url(HMAC-SHA256(LINK_SIGNING_SECRET, "v1|link_id|contact_id|exp"))`. Validation: parse → `link_resolve(link_id)` → constant-time signature check with the resolved contact id → `exp` and `expires_at` in the future → link not revoked and request/contact not revoked in state → contact not erased. Every failure renders the same plain "This link is no longer valid" page (HTTP 410).
 
 ### 8.3 Client page `/c/[token]`
-Implemented as Next **route handlers** (GET renders, POST handles forms) that return HTML built with a small auto-escaping `html` tagged template — no React hydration, no JavaScript, mobile-first inline-free stylesheet served from `/c/static/client.css`. Headers: `Content-Security-Policy: default-src 'none'; style-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'`, `Referrer-Policy: no-referrer`, `X-Robots-Tag: noindex, nofollow`, `Cache-Control: no-store`. No third-party resources, analytics or fonts.
+Implemented as Next **route handlers** (GET renders, POST handles forms) that return HTML built with a small auto-escaping `html` tagged template — no React hydration, no JavaScript, mobile-first inline-free stylesheet served from `/c/static/client.css`. Headers: `Content-Security-Policy: default-src 'none'; style-src 'self'; img-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'`, `Referrer-Policy: no-referrer`, `X-Robots-Tag: noindex, nofollow`, `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` (`apps/web/src/client/respond.ts`). No third-party resources, analytics or fonts. POSTs from another site (`Sec-Fetch-Site` other than `same-origin`, or a foreign `Origin`) get 403; form bodies over 256 KB get 413.
 1. GET increments `open_count` / `first_opened_at` (raw opens — inflated by mail scanners). The first POST of any kind sets `first_interaction_at` (the open metric uses this).
 2. If the contact's latest authorization is not `granted`, show the exact authorization text (`core/confirmation/authorization-text.ts`, versioned) with **Grant** / **Decline**. Decline → `authorization_declined`, notification + email to the requester; the page says they cannot confirm and may return to grant later.
 3. Items in the request still active at the requested version: kind, short id, statement, quote(s) with source date (or "entered manually"), and a word diff against the previously confirmed version if one exists. Per item: Confirm / Dispute (comment required) / Skip. Items revised since the request show "updated since this request".
@@ -288,7 +288,8 @@ The attestation and policy snapshot are stored in `source_ingested`.
 - `ModelClient { extract(input): Promise<RawCandidate[]> }`. `AnthropicModelClient` uses `@anthropic-ai/sdk`, `ANTHROPIC_MODEL` from env, a forced tool call (`record_candidates`) for structured output, explicit `max_tokens`, and chunking of long sources by segment boundaries.
 - Prompts: `packages/ai/prompts/extract.v1.md`; the version string is stored on `extraction_run` and in item provenance.
 - Input: source text, source type, existing active items (`short_id, kind, status, statement`) so the model proposes **revisions** (`revises: short_id`) rather than duplicates. Candidate dependencies reference existing short ids or same-run candidates by ordinal (`#3`); on accept, references to accepted candidates resolve to their items and unresolved ones are dropped with a visible note.
-- Flow (no transaction held across the model call): tx 1 — check `org.ai_enabled AND engagement.ai_enabled`, create `extraction_run`; if off, throw `AiDisabledError` before any client is constructed or called. Model call outside any transaction. tx 2 — re-check the flags (discard results if AI was switched off meanwhile), verify quotes, insert candidates, finish the run.
+- Flow (no transaction held across the model call): tx 1 — check `org.ai_enabled AND engagement.ai_enabled`, create `extraction_run`; if off, throw `AiDisabledError` before any client is constructed or called. Immediately before the call the flags are read once more (a switch turned off while the client was built discards the run without calling it). Model call outside any transaction. tx 2 — re-check the flags `FOR SHARE` (discard results if AI was switched off meanwhile), read the source text holding `source_content` `FOR SHARE` (a concurrent redaction waits and then deletes the new candidates too), verify quotes, insert candidates, finish the run.
+- Remaining window: a switch turned off *during* the model call cannot recall text already sent; the results are discarded in tx 2 and nothing is stored. The gap between the last check and the request leaving the process is a few milliseconds.
 - `verifyQuote`: exact `text.slice(start, end) === quote` → `exact`; else nearest exact occurrence of `quote` → offsets corrected, `offset_corrected` (flagged in the UI); else dropped and counted. Empty, whitespace-only or >500-char quotes are dropped.
 - AI toggle changes write `audit_log` (`ai.toggle`).
 - Eval: `packages/ai/eval` over `fixtures/eval` — 4 synthetic sources with expected items; match = same kind and overlapping span; precision/recall per source and overall. Default: replays recorded responses through the real verification and scoring code; `EVAL_LIVE=1` + `ANTHROPIC_API_KEY` calls the model (D-014).
@@ -335,12 +336,29 @@ Engagement list · Engagement ledger (filter by kind, status, needs-review) · I
 
 ## 14. Security baseline
 
-- Auth: magic link (15-min single-use) → session cookie (`HttpOnly`, `Secure` in prod, `SameSite=Lax`). Roles `admin`/`member`; admin-only: org settings, users, org AI toggle, retention.
-- Audit log actions: `auth.login`, `auth.logout`, `source.ingest`, `source.redact`, `ai.toggle`, `engagement.create`, `engagement.update`, `confirmation.request`, `confirmation.revoke`, `export.spec`, `export.record_md`, `export.record_pdf`, `contact.erase`, `user.invite`, `user.deactivate`, `api_token.create`, `api_token.revoke`, `settings.update`.
-- Rate limits (Postgres fixed window, `core/security/rate-limit.ts`): client pages per IP and per link, magic-link requests per IP and per email, MCP per token and per IP.
-- Logging: `core/log.ts` accepts ids, enums and counts only. Never source text, statements, quotes, comments, emails, names, IPs or tokens. DB errors logged by SQLSTATE and constraint name only.
-- No customer data is used to train or fine-tune anything. AI-off is enforced server-side.
-- Secrets only via env (`SESSION_SECRET`, `LINK_SIGNING_SECRET`, `CRON_SECRET`, `ANTHROPIC_API_KEY`).
+- Auth: magic link (15-min single-use, consumed by a POST from the interstitial) → session cookie (`HttpOnly`, `SameSite=Lax`, `Secure` when `APP_URL` is https — never derived from request headers). Roles `admin`/`member`; admin-only: org settings, users, org AI toggle, retention, **contact erasure**.
+- Audit log actions (`core/audit.ts`, every one written by a real code path — `core/src/audit-coverage.int.test.ts`): `auth.login`, `auth.logout`, `source.ingest`, `source.redact`, `ai.toggle`, `engagement.create`, `engagement.update`, `confirmation.request`, `confirmation.revoke`, `export.spec`, `export.record_md`, `export.record_pdf`, `contact.erase`, `contact.outside_domains`, `user.invite`, `user.deactivate`, `api_token.create`, `api_token.revoke`, `settings.update`. Metadata holds ids, enums, counts and booleans only.
+- Rate limits (Postgres fixed window, `core/security/rate-limit.ts`; windows older than a day are pruned by the retention job):
+
+  | surface | key | limit | where |
+  |---|---|---|---|
+  | magic-link request | client IP | 20 / 15 min | `core/auth/magic-link.ts` `MAGIC_LINK_RATE_LIMITS.perIp` |
+  | magic-link request | normalized email | 5 / 15 min | `MAGIC_LINK_RATE_LIMITS.perEmail` |
+  | magic-link verify (POST) | client IP | 30 / 15 min | `MAGIC_LINK_RATE_LIMITS.verifyPerIp` |
+  | client page `/c/*` (GET and POST) | client IP | 300 / 15 min | `core/confirmation/client-actions.ts` `CLIENT_PAGE_RATE_LIMITS.perIp` |
+  | client page `/c/*` (GET and POST) | link id (from the token, unverified) | 120 / 15 min | `CLIENT_PAGE_RATE_LIMITS.perLink` |
+  | MCP `/mcp` | client IP (before authentication) | 120 / min | `apps/mcp/src/server.ts` `DEFAULT_RATE_LIMITS.perIpPerMinute` |
+  | MCP `/mcp` | API token (after authentication) | 60 / min | `DEFAULT_RATE_LIMITS.perTokenPerMinute` |
+
+  Over the limit: magic-link requests still answer "check your email" (no enumeration); verify redirects to the login error; client pages answer 429 with `Retry-After`; MCP answers 429 with `Retry-After`.
+- Client IP: the `X-Forwarded-For` entry appended by the first trusted proxy, counted from the right (`TRUSTED_PROXY_HOPS`, default 1; `core/security/client-ip.ts`). Entries further left are client-supplied and ignored. `0` = no proxy: the header is ignored (the web app then has no client address and keys on "unknown"; the MCP server uses the socket address). Set it to the number of proxies that append to the header: 1 behind a single load balancer or platform router (Fly, Render, Railway, Heroku, a single nginx); 2 behind a CDN in front of a load balancer (e.g. Cloudflare → load balancer). An invalid value fails at startup.
+- CSRF: server actions rely on Next's Origin check; plain form POSTs (`/auth/verify`, `/c/*`) are refused unless `Sec-Fetch-Site: same-origin`, or, without Fetch Metadata, an Origin equal to `APP_URL`'s (`Origin: null` is refused on `/auth/verify` and accepted on `/c/*`, where the token is the credential). `/logout` relies on `SameSite=Lax`.
+- Request bodies: `/auth/verify` 4 KB, `/c/*` 256 KB, server actions 6 MB (uploads), MCP 1 MB (and at most 100 messages per batch). `.docx` uploads are inflated under a 25 MB / 2,000-entry budget before mammoth sees them, and extracted text obeys the 5 MB source limit.
+- Headers: every response `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin` (`no-referrer` on `/auth/verify` and `/c/*`); production builds add `Strict-Transport-Security: max-age=31536000; includeSubDomains`. Client pages and the magic-link interstitial add strict CSPs (§8.3).
+- Logging: `core/log.ts` accepts ids, enums and counts only. Never source text, statements, quotes, comments, emails, names, IPs or tokens. DB errors logged by SQLSTATE and constraint name only. The dev request log skips `/auth/verify` and `/c/` (tokens in URLs).
+- No customer data is used to train or fine-tune anything. AI-off is enforced server-side; AI-off spec exports and MCP output also omit quotes, source titles and contact names.
+- Secrets only via env (`SESSION_SECRET`, `LINK_SIGNING_SECRET`, `CRON_SECRET`, `ANTHROPIC_API_KEY`). In production the web server and `pnpm jobs:run` refuse to start when `LINK_SIGNING_SECRET` is missing or any of the three is shorter than 32 characters or a `dev-only…`/`change-me` placeholder (`core/security/secrets.ts`); `linkSigningSecret()` and the cron routes check again at use.
+- Self-confirmation guard: an engagement may list the client's email domains; adding a contact outside them needs an explicit, audited acknowledgement (`contact.outside_domains`), and confirmations show the confirmer's email domain (D-057).
 
 ## 15. Extension seams
 
@@ -358,9 +376,15 @@ Engagement list · Engagement ledger (filter by kind, status, needs-review) · I
 
 - Unit (pure): canonical JSON, hashing, reducer, replay, diff, dependencies, consent, parsers, quote verification, business days, metrics, word diff, markdown export.
 - Integration (Vitest, real Postgres `veradact_test` as `veradact_app`, files `*.int.test.ts`): append-only enforcement, hash-chain tamper and truncation detection, hash round-trip, RLS catalog sweep + cross-tenant read/write, version-bound confirmations, sourced-or-manual, bitemporal fields, rebuild == live (property test, 1,000 events), AI-off zero model calls, consent blocking, erasure keeps the chain valid.
-- E2E (Playwright): full confirmation flow incl. expired/revoked links.
+- Application-layer isolation (`core/src/security/cross-tenant.int.test.ts`, `apps/mcp/src/export-loaders-cross-tenant.int.test.ts`): every command, query and export loader that takes an id answers org B's ids exactly like unknown ids and changes nothing in org B. Audit coverage (`core/src/audit-coverage.int.test.ts`): every audit action has a writer and metadata is ids/enums/counts only. Retention (`core/src/jobs/retention.int.test.ts`). Rate limits: magic link (`core/src/auth`), client pages (`core/src/confirmation/client-rate-limit.int.test.ts`), MCP (`apps/mcp/src/server.int.test.ts`).
+- E2E (Playwright): full confirmation flow incl. expired/revoked links; deletion flow (`e2e/privacy.spec.ts`: erase a contact, redact a source, chain still verifies); replay and export; CSRF and body limits on the public POSTs.
 - Eval: extraction precision/recall.
 
 ## 17. Deployment (pilot)
 
-Any Node 22 host for `apps/web` and `apps/mcp` plus managed Postgres 16. Production email through any SMTP provider (`SMTP_URL`). A scheduler (platform cron or similar) calls `/api/cron/reminders` hourly and `/api/cron/retention` daily with `CRON_SECRET`. No vendor-specific deployment code in the MVP.
+Any Node 22 host for `apps/web` and `apps/mcp` plus managed Postgres 16. Production email through any SMTP provider (`SMTP_URL`). A scheduler (platform cron or similar) calls `/api/cron/reminders` hourly and `/api/cron/retention` daily with `Authorization: Bearer $CRON_SECRET` (or runs `pnpm jobs:run`). No vendor-specific deployment code in the MVP.
+
+- Run both apps behind a TLS-terminating proxy and set `TRUSTED_PROXY_HOPS` to the number of proxies that append to `X-Forwarded-For` (§14). `APP_URL` must be the public https URL (cookies, links, CSRF checks and HSTS depend on it).
+- **Proxies, CDNs and load balancers must not log the path or query of `/c/*` and `/auth/verify` requests**: client links and magic links carry their bearer token in the URL. Configure access logs to drop or truncate those paths (the app's own logs never contain them).
+- Generate `SESSION_SECRET`, `LINK_SIGNING_SECRET` and `CRON_SECRET` with `openssl rand -base64 32`; the app refuses the `.env.example` placeholders in production. Rotating `LINK_SIGNING_SECRET` invalidates outstanding client links.
+- Migrations run with the owner role (`DATABASE_ADMIN_URL`) from a release step; the apps get only `DATABASE_URL` (`veradact_app`).

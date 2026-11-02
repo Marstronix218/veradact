@@ -6,6 +6,8 @@ export * from "./log";
 export * from "./audit";
 export * from "./security/tokens";
 export * from "./security/rate-limit";
+export * from "./security/secrets";
+export * from "./security/client-ip";
 export * from "./auth";
 export * from "./org";
 export * from "./api-tokens";

@@ -23,7 +23,8 @@ test("an admin changes org settings", async ({ page }) => {
   await page.getByLabel("Delete source text after (days)").fill("90");
   await page.getByLabel("All-party consent states").fill("wa, ca");
   await page.getByRole("button", { name: "Save settings" }).click();
-  await expect(page.getByText("Settings saved.")).toBeVisible();
+  // Saving runs a server action that writes settings and audit rows; allow for a cold route.
+  await expect(page.getByText("Settings saved.")).toBeVisible({ timeout: 20_000 });
 
   await page.reload();
   await expect(page.getByLabel("Use AI to suggest items from sources")).not.toBeChecked();

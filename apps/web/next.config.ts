@@ -14,11 +14,16 @@ const repoRoot = path.resolve(webDir, "../..");
 const rootEnvFile = path.join(repoRoot, ".env");
 if (process.env.NODE_ENV !== "production" && existsSync(rootEnvFile)) process.loadEnvFile(rootEnvFile);
 
-/** Security headers for every response (ARCHITECTURE §14). Client pages add their own CSP. */
+/**
+ * Security headers for every response (ARCHITECTURE §14). Client pages add their own CSP. Next
+ * evaluates `headers()` at build time, so HSTS is part of every production build; browsers ignore
+ * it on plain-http responses, and dev servers never send it (it would pin localhost to https).
+ */
 const securityHeaders = [
   { key: "X-Frame-Options", value: "DENY" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  ...(process.env.NODE_ENV === "production" ? [{ key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" }] : []),
 ];
 
 const nextConfig: NextConfig = {

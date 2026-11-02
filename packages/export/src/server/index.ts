@@ -4,7 +4,7 @@
  * entry point.
  */
 export { resolveEngagementRef, resolveItemRef, type EngagementRecord, type ItemRefResult } from "./refs";
-export { parseAsOf, AS_OF_FORMAT_MESSAGE } from "./as-of";
+export { parseAsOf, currentCut, AS_OF_FORMAT_MESSAGE } from "./as-of";
 export { loadExportContext, effectiveAiEnabled, type LoadExportContextInput } from "./context";
 export { loadSpec, type LoadSpecInput, type LoadedSpec } from "./spec";
 export { loadRecord, type LoadRecordInput, type LoadedRecord } from "./record";

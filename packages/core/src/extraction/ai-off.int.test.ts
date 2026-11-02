@@ -139,6 +139,25 @@ describe("AI off → zero model calls (Phase 2 acceptance)", () => {
     expect(rows.runs[0]!.finishedAt).not.toBeNull();
   });
 
+  it("stops before the model call when AI is switched off after tx 1 (while the client is built)", async () => {
+    const e = await createLedgerEngagement(app, admin.db);
+    const mock = new MockModelClient([[CANDIDATE]]);
+    const result = await runExtraction({
+      ...e,
+      db: app.db,
+      clock: e.ctx.clock,
+      modelClientFactory: async () => {
+        // tx 1 has checked the flags; the member switches AI off before the text is sent.
+        await setEngagementAiEnabled({ ...e.ctx }, { engagementId: e.engagementId, enabled: false });
+        return mock;
+      },
+    });
+    expect(result).toMatchObject({ status: "discarded", errorCode: "ai_disabled", proposed: 0, stored: 0 });
+    expect(mock.calls).toBe(0);
+    const runs = await inTenant(app, e.orgId, (tx) => tx.select().from(extractionRun).where(eq(extractionRun.id, result.runId)));
+    expect(runs[0]).toMatchObject({ status: "discarded", errorCode: "ai_disabled" });
+  });
+
   it("records a failed run with the model error code and keeps the ingest", async () => {
     const e = await createLedgerEngagement(app, admin.db);
     const { ModelClientError } = await import("@veradact/ai");

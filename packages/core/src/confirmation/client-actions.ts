@@ -19,9 +19,9 @@ import {
   type Tx,
 } from "@veradact/db";
 import type { EmailMessage, EmailProvider } from "@veradact/email";
-import { recordAuthorization, recordClientResponses, COMMENT_MAX, type ClientEvidence } from "../commands";
+import { recordAuthorization, recordClientResponses, submissionOwner, COMMENT_MAX, type ClientEvidence } from "../commands";
 import { UUID_PATTERN, sha256Hex, type EngagementState, type Kind, type ResponseDecision } from "../domain";
-import { isDomainError } from "../errors";
+import { DomainError, isDomainError } from "../errors";
 import { logError, logId } from "../log";
 import { insertNotifications } from "../notifications";
 import { compareItemRows } from "../queries";
@@ -115,7 +115,9 @@ async function loadLinkNames(tx: Tx, link: ClientLinkContext): Promise<LinkNames
     .innerJoin(org, eq(org.id, confirmationRequest.orgId))
     .where(eq(confirmationRequest.id, link.requestId));
   const [contact] = await tx.select({ name: contactPii.name, email: contactPii.email }).from(contactPii).where(eq(contactPii.contactId, link.contactId));
-  if (!row || !contact) throw new Error("client action: request or contact not found");
+  // Both exist for a resolved link unless the contact was erased (or the request removed) since.
+  if (!row) throw new DomainError("request_not_found", { requestId: link.requestId });
+  if (!contact) throw new DomainError("contact_erased", { contactId: link.contactId });
   const [user] = await tx
     .select({ id: appUser.id, name: appUser.name, email: appUser.email, deactivatedAt: appUser.deactivatedAt })
     .from(appUser)
@@ -232,7 +234,7 @@ export interface ClientFormResponse {
   comment: string;
 }
 
-export type ClientFieldError = "comment_required" | "comment_too_long";
+export type ClientFieldError = "comment_required" | "comment_too_long" | "comment_invalid";
 
 export interface ClientReceiptItem {
   itemId: string;
@@ -277,6 +279,7 @@ export function validateClientResponses(responses: readonly ClientFormResponse[]
     const comment = r.comment.trim();
     if (comment === "") errors[r.itemId] = "comment_required";
     else if (comment.length > COMMENT_MAX) errors[r.itemId] = "comment_too_long";
+    else if (comment.includes("\u0000")) errors[r.itemId] = "comment_invalid";
   }
   return errors;
 }
@@ -323,7 +326,29 @@ function receiptFrom(state: EngagementState, submissionId: string, names: LinkNa
   };
 }
 
-const STALE_CODES = ["version_mismatch", "item_not_active", "item_not_in_request", "duplicate_item_response"] as const;
+/**
+ * Rule violations a client can hit through races (an item revised, the request revoked or expired,
+ * the contact erased while the form was open) or a tampered form. Nothing was recorded; the page
+ * is shown again (and a link that is no longer valid then gets the 410 page).
+ */
+const STALE_CODES = [
+  "version_mismatch",
+  "item_not_active",
+  "item_not_found",
+  "item_not_in_request",
+  "duplicate_item_response",
+  "submission_mismatch",
+  "request_not_found",
+  "request_revoked",
+  "request_expired",
+  "contact_not_in_request",
+  "contact_not_found",
+  "contact_erased",
+  "empty_submission",
+] as const;
+
+/** Comment rules `validateClientResponses` checks first; mapped again in case the command disagrees. */
+const FIELD_CODES: Partial<Record<string, ClientFieldError>> = { comment_required: "comment_required", invalid_comment: "comment_invalid" };
 
 /**
  * Records one client submission as a single batch (§8.3 step 5): validates comments, requires a
@@ -354,6 +379,9 @@ export async function clientSubmit(input: ClientSubmitInput): Promise<ClientSubm
 
       const state = await loadState(tx, link.engagementId);
       if (state.submissions.has(input.submissionId)) {
+        // Only the contact and request that recorded it may see its receipt again.
+        const owner = submissionOwner(state, input.submissionId);
+        if (owner?.contactId !== link.contactId || owner.requestId !== link.requestId) return { kind: "result", result: { status: "stale" } };
         return { kind: "recorded", receipt: receiptFrom(state, input.submissionId, names, { seq: state.headSeq, hash: state.headHash }), duplicate: true, disputedShortIds: [], names };
       }
       if (!authorized) return { kind: "result", result: { status: "authorization_required" } };
@@ -413,9 +441,16 @@ export async function clientSubmit(input: ClientSubmitInput): Promise<ClientSubm
       return { kind: "recorded", receipt, duplicate: result.duplicate, disputedShortIds: result.duplicate ? [] : disputedShortIds, names };
     });
   } catch (error) {
-    if (STALE_CODES.some((code) => isDomainError(error, code))) return { status: "stale" };
-    if (isDomainError(error, "not_authorized")) return { status: "authorization_required" };
-    throw error;
+    if (!isDomainError(error)) throw error;
+    if (error.code === "not_authorized") return { status: "authorization_required" };
+    const field = FIELD_CODES[error.code];
+    const itemId = error.details.itemId;
+    if (field && typeof itemId === "string") return { status: "invalid", errors: { [itemId]: field } };
+    if (!(STALE_CODES as readonly string[]).includes(error.code)) {
+      logError("confirmation.submit_rejected", error, { linkId: logId(link.linkId), code: error.code });
+    }
+    // Nothing was recorded; never a 500 for a rule the client could trip.
+    return { status: "stale" };
   }
 
   if (outcome.kind === "result") return outcome.result;

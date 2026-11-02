@@ -19,6 +19,9 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   reporter: "list",
+  // The dev server compiles each route on its first request; under fully parallel workers a first
+  // server-action round trip can take longer than Playwright's 5 s default.
+  expect: { timeout: 10_000 },
   use: {
     baseURL,
     trace: "on-first-retry",

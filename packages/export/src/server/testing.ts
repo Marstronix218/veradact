@@ -4,6 +4,7 @@
 import { randomUUID } from "node:crypto";
 import {
   addContact,
+  AUTHORIZATION_TEXT_VERSION,
   createEngagement,
   createItem,
   ingestSource,
@@ -13,7 +14,7 @@ import {
   type CommandContext,
   type ItemVersionResult,
 } from "@veradact/core";
-import type { Db, DbHandle } from "@veradact/db";
+import { event, type Db, type DbHandle, type Tx } from "@veradact/db";
 import { createTestOrg, createTestUser } from "@veradact/db/testing";
 
 /** Steps `stepMs` per read; `jump(to)` moves it forward (never backward). */
@@ -133,7 +134,7 @@ export async function createExportScenario(app: DbHandle, admin: Db, options: Ex
 
   const client = { db: app.db, orgId: testOrg.id, clock: clock.clock };
   for (const contactId of [ada, ben]) {
-    await recordAuthorization(client, { engagementId, requestId, contactId, decision: "granted", text: AUTH_TEXT, textVersion: "v1", evidence: EVIDENCE });
+    await recordAuthorization(client, { engagementId, requestId, contactId, decision: "granted", text: AUTH_TEXT, textVersion: AUTHORIZATION_TEXT_VERSION, evidence: EVIDENCE });
   }
   const respond = (contactId: string, responses: { item: ScenarioItem; decision: "confirmed" | "disputed"; comment?: string }[]) =>
     recordClientResponses(client, {
@@ -156,4 +157,60 @@ export async function createExportScenario(app: DbHandle, admin: Db, options: Ex
   ]);
 
   return { orgId: testOrg.id, userId: user.id, engagementId, shortCode, sourceId, ctx, clock, contacts: { ada, ben }, items: { r1, d1, r2, a1, c1 } };
+}
+
+type AnyFn = (...args: unknown[]) => unknown;
+
+/**
+ * Wraps a transaction so that `hook` runs once, right before or right after the first query on the
+ * `event` table: the moment another connection's append can commit between this transaction's
+ * statements at READ COMMITTED (used to test that loaders read `engagement_head` first).
+ */
+export function onFirstEventRead(tx: Tx, when: "before" | "after", hook: () => Promise<void>): Tx {
+  let fired = false;
+  const wrap = (builder: object): object =>
+    new Proxy(builder, {
+      get(target, prop) {
+        const value = Reflect.get(target, prop, target) as unknown;
+        if (typeof value !== "function") return value;
+        if (prop === "then") {
+          return (resolve: (v: unknown) => void, reject: (e: unknown) => void) =>
+            (async () => {
+              const fire = !fired;
+              fired = true;
+              if (fire && when === "before") await hook();
+              const rows = await new Promise((res, rej) => (value as AnyFn).call(target, res, rej));
+              if (fire && when === "after") await hook();
+              return rows;
+            })().then(resolve, reject);
+        }
+        return (...args: unknown[]) => {
+          const result = (value as AnyFn).apply(target, args);
+          return result === target ? wrap(target) : result;
+        };
+      },
+    });
+  return new Proxy(tx, {
+    get(target, prop) {
+      const value = Reflect.get(target, prop, target) as unknown;
+      if (typeof value !== "function") return value;
+      if (prop !== "select") return (value as AnyFn).bind(target);
+      return (...args: unknown[]) => {
+        const builder = (value as AnyFn).apply(target, args) as object;
+        return new Proxy(builder, {
+          get(b, p) {
+            const v = Reflect.get(b, p, b) as unknown;
+            if (typeof v !== "function") return v;
+            if (p === "from") {
+              return (table: unknown, ...rest: unknown[]) => {
+                const query = (v as AnyFn).call(b, table, ...rest) as object;
+                return table === event ? wrap(query) : query;
+              };
+            }
+            return (v as AnyFn).bind(b);
+          },
+        });
+      };
+    },
+  });
 }

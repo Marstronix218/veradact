@@ -1,7 +1,8 @@
 // /c/<token> — the client confirmation page (ARCHITECTURE §8.3). Route handlers, not React: GET
 // renders, POST handles `action=authorize|submit|confirm-all-review`. Every invalid, expired or
-// revoked link gets the same 410 page; rate limits are per IP and per link. Tokens, IPs and names
-// are never logged (the dev request log skips /c/, next.config.ts).
+// revoked link gets the same 410 page; rate limits are per IP and per link; POSTs from another
+// site are refused (403). Tokens, IPs and names are never logged (the dev request log skips /c/,
+// next.config.ts).
 import { randomUUID } from "node:crypto";
 import type { NextRequest } from "next/server";
 import {
@@ -34,11 +35,17 @@ import { clock } from "@/lib/clock";
 import { getDb } from "@/lib/db";
 import { getEmailProvider } from "@/lib/email";
 import { appUrl } from "@/lib/env";
-import { clientIpFrom, userAgentFrom } from "@/lib/request";
+import { clientIpFrom, isCrossSite, readFormData, userAgentFrom } from "@/lib/request";
 
 export const dynamic = "force-dynamic";
 
 type Params = { params: Promise<{ token: string }> };
+
+/**
+ * Largest client form accepted: room for several maximum-length dispute comments (5,000
+ * characters, up to 9 bytes each once percent-encoded) plus the per-item fields.
+ */
+const MAX_FORM_BYTES = 256 * 1024;
 
 const invalid = () => htmlResponse(renderInvalidLinkPage(), 410);
 
@@ -86,13 +93,19 @@ export async function GET(request: NextRequest, { params }: Params): Promise<Res
 export async function POST(request: NextRequest, { params }: Params): Promise<Response> {
   const { token } = await params;
   try {
+    // The token is the credential, but a page on another site that learned it must not be able
+    // to answer for the contact through their browser.
+    // Old browsers send `Origin: null` from these no-referrer pages, so null is allowed here.
+    if (isCrossSite(request.headers, new URL(appUrl()).origin, { allowNullOrigin: true })) return htmlResponse(renderErrorPage(), 403);
+    if (Number(request.headers.get("content-length") ?? "0") > MAX_FORM_BYTES) return htmlResponse(renderErrorPage(), 413);
     const opened = await open(request, token);
     if ("response" in opened) return opened.response;
     const { link } = opened;
     const db = getDb();
     await recordLinkInteraction({ db, link, clock });
 
-    const form = await request.formData();
+    const form = await readFormData(request, MAX_FORM_BYTES);
+    if (!form) return htmlResponse(renderErrorPage(), 413);
     const action = form.get("action");
     const evidence = { ip: nullIfUnknown(clientIpFrom(request.headers)), userAgent: userAgentFrom(request.headers) };
     const view = await loadClientView(db, link, { clock });
@@ -158,7 +171,11 @@ export async function POST(request: NextRequest, { params }: Params): Promise<Re
       case "authorization_required":
         return pageFor(await loadClientView(db, link, { clock }), token);
       case "stale": {
-        const fresh = await loadClientView(db, link, { clock });
+        // The request may have been revoked or the contact erased meanwhile: re-check the link.
+        const again = await resolveClientLink({ db, token, clock });
+        if (!again.ok) return invalid();
+        const fresh = await loadClientView(db, again.ctx, { clock });
+        if (fresh.authorization.status !== "granted") return pageFor(fresh, token);
         return htmlResponse(renderItemsPage(fresh, token, { submissionId: randomUUID(), notice: stale }), 409);
       }
     }

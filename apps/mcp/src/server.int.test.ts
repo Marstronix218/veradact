@@ -8,7 +8,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { LATEST_PROTOCOL_VERSION } from "@modelcontextprotocol/sdk/types.js";
 import { afterAll, describe, expect, it } from "vitest";
-import { createApiToken, revokeApiToken, type CreatedApiToken } from "@veradact/core";
+import { createApiToken, reviseItem, revokeApiToken, type CreatedApiToken } from "@veradact/core";
 import { usageEvent, withTenant } from "@veradact/db";
 import { adminTestDb, testDb } from "@veradact/db/testing";
 import { createExportScenario, type ExportScenario, type ExportScenarioOptions } from "@veradact/export/server/testing";
@@ -209,6 +209,12 @@ describe("tools", () => {
     expect(item.versions[0].sources[0]).not.toHaveProperty("title");
     expect(text).not.toContain(s.items.r1.quote!);
     expect(text).not.toContain("Kickoff notes");
+    // Confirmations are shown without the contacts' names.
+    expect(item.responses.map((r: { contact: string; response: string }) => [r.contact, r.response])).toEqual([
+      ["client contact", "confirmed"],
+      ["client contact", "confirmed"],
+    ]);
+    expect(text).not.toMatch(/Ada Client|Ben Client/);
   });
 
   it("list_unconfirmed lists pending, disputed and never-requested items under a do-not-build header", async () => {
@@ -222,6 +228,25 @@ describe("tools", () => {
     expect(text).toContain(`- ${s.items.c1.shortId} [constraint, pending] ${s.items.c1.statement}`);
     expect(text).not.toContain(s.items.r1.shortId);
     expect(text).not.toContain(s.items.d1.shortId);
+  });
+
+  it("without as_of, list_unconfirmed and get_confirmed_spec see the whole log even when it was recorded ahead of the server's clock", async () => {
+    const { s, token } = await scenarioWithToken();
+    // The writer's clock is ahead: R1 (confirmed Mar 3) is revised at Mar 20, while this server reads Mar 15.
+    s.clock.jump(new Date("2026-03-20T15:00:00.000Z"));
+    const revised = "The dispatch dashboard refreshes every two minutes.";
+    await reviseItem(s.ctx, { engagementId: s.engagementId, itemId: s.items.r1.itemId, statement: revised, reasonCode: "scope_change" });
+    const url = await startServer({ clock: () => new Date("2026-03-15T12:00:00.000Z") });
+    const client = await connect(token.token, url);
+
+    const unconfirmed = await call(client, "list_unconfirmed", { engagement_id: "HALV" });
+    expect(unconfirmed.isError).toBe(false);
+    expect(unconfirmed.text).toContain(`- ${s.items.r1.shortId} [requirement, revision pending; previously agreed] ${revised}`);
+    const spec = await call(client, "get_confirmed_spec", { engagement_id: "HALV" });
+    const [confirmed, notConfirmed] = spec.text.split(NOT_CONFIRMED);
+    expect(confirmed).not.toContain(`### ${s.items.r1.shortId}`);
+    expect(confirmed).toContain(`### ${s.items.d1.shortId}`);
+    expect(notConfirmed).toContain(`- ${s.items.r1.shortId} · ${revised}`);
   });
 
   it("answers not found for another org's engagement and items, and writes no usage for them", async () => {
@@ -305,6 +330,22 @@ describe("HTTP", () => {
     expect(statuses).toEqual([401, 401, 429]);
     // Another address is unaffected.
     expect((await post(url)).status).toBe(401);
+  });
+
+  it("keys the per-IP limit on the address the trusted proxy appended, not on client-supplied entries", async () => {
+    const url = await startServer({ clock: () => new Date("2026-06-01T12:01:40.000Z"), rateLimits: { perTokenPerMinute: 1000, perIpPerMinute: 2 } });
+    const real = uniqueIp();
+    // A client rotating a forged leftmost entry stays in the bucket of the address its proxy saw.
+    const statuses = [];
+    for (let i = 0; i < 3; i++) statuses.push((await post(url, { ip: `${uniqueIp()}, ${real}` })).status);
+    expect(statuses).toEqual([401, 401, 429]);
+  });
+
+  it("ignores X-Forwarded-For with zero trusted proxy hops and uses the socket address", async () => {
+    const url = await startServer({ clock: () => new Date("2026-06-01T12:02:40.000Z"), rateLimits: { perTokenPerMinute: 1000, perIpPerMinute: 2 }, trustedProxyHops: 0 });
+    const statuses = [];
+    for (let i = 0; i < 3; i++) statuses.push((await post(url, { ip: uniqueIp() })).status);
+    expect(statuses).toEqual([401, 401, 429]);
   });
 
   it("rejects request bodies over 1 MB with 413", async () => {

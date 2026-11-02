@@ -111,7 +111,8 @@ function VersionCard({ v, previous, current, segments, e }: { v: VersionDetail; 
           <ul className="mt-1 space-y-1 text-sm">
             {v.responses.map((r) => (
               <li key={r.eventSeq}>
-                <span className="font-medium">{r.contactName}</span>{" "}
+                <span className="font-medium">{r.contactName}</span>
+                {r.contactEmailDomain ? <span className="text-zinc-500"> ({r.contactEmailDomain})</span> : null}{" "}
                 <Badge tone={r.response === "confirmed" ? "green" : "red"}>{r.response === "confirmed" ? "Confirmed" : "Disputed"}</Badge>{" "}
                 <span className="text-zinc-500">
                   v{r.version} · {formatDateTime(r.recordedAt, e.timeZone)}
@@ -219,6 +220,11 @@ export default async function ItemPage({ params, searchParams }: { params: Promi
         <p className="text-lg text-zinc-900" data-testid="item-statement">
           {current.statement}
         </p>
+        {item.kind === "decision" || item.kind === "requirement" ? (
+          <Link href={`/engagements/${e.id}/replay?decision=${item.shortId}`} className="inline-block text-sm text-blue-700 hover:underline">
+            What did we know when this was decided?
+          </Link>
+        ) : null}
         {item.supersededBy ? (
           <p className="text-sm text-zinc-600">
             Superseded by{" "}

@@ -94,8 +94,14 @@ interface SourceText {
   sourceType: SourceType;
 }
 
-/** The source's verified text, or a DomainError (unknown, redacted, or text that no longer matches its hash). */
-async function readSourceText(tx: Tx, engagementId: string, sourceId: string): Promise<SourceText> {
+/**
+ * The source's verified text, or a DomainError (unknown, redacted, or text that no longer matches its
+ * hash). With `lock` (tx 2) the `source_content` row is held FOR SHARE until commit: `redactSource`
+ * deletes that row first, so a redaction either finishes before this read (→ `source_redacted`) or
+ * waits for the candidates to be stored and then deletes them with the source.
+ */
+async function readSourceText(tx: Tx, engagementId: string, sourceId: string, lock = false): Promise<SourceText> {
+  if (lock) await tx.select({ id: sourceContent.sourceId }).from(sourceContent).where(eq(sourceContent.sourceId, sourceId)).for("share");
   const [row] = await tx
     .select({ sourceType: source.sourceType, sha: source.contentSha256, redactedAt: source.redactedAt, text: sourceContent.text })
     .from(source)
@@ -181,6 +187,16 @@ export async function runExtraction(input: RunExtractionInput): Promise<Extracti
   const model = client.name;
   log.info("extraction.started", { runId: logId(runId), sourceId: logId(sourceId), existingItems: existingItems.length });
 
+  // Last check right before the text leaves: a switch turned off since tx 1 (e.g. while the
+  // client was being built) stops the call. A switch turned off during the call discards the
+  // results in tx 2 (ARCHITECTURE §9.3).
+  const flagsNow = await withTenant(db, tenant, (tx) => readAiFlags(tx, orgId, engagementId, false));
+  if (!flagsNow.org || !flagsNow.engagement) {
+    await finishRun(db, tenant, runId, { status: "discarded", errorCode: "ai_disabled", finishedAt: clock() });
+    log.info("extraction.discarded", { runId: logId(runId), reason: "ai_disabled", proposed: 0 });
+    return { runId, status: "discarded", errorCode: "ai_disabled", model, promptVersion, ...empty };
+  }
+
   // The model call: outside any transaction.
   let raw: RawCandidate[];
   try {
@@ -204,7 +220,7 @@ export async function runExtraction(input: RunExtractionInput): Promise<Extracti
 
       let current: SourceText;
       try {
-        current = await readSourceText(tx, engagementId, sourceId);
+        current = await readSourceText(tx, engagementId, sourceId, true);
       } catch (error) {
         if (!(error instanceof DomainError)) throw error;
         await tx.update(extractionRun).set({ status: "failed", errorCode: error.code, finishedAt: clock() }).where(eq(extractionRun.id, runId));

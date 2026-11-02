@@ -11,17 +11,26 @@ export const metadata: Metadata = { title: "Contacts" };
 export default async function ContactsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const e = await requireEngagement(id);
-  const contacts = await withAuthTenant((tx) => listContacts(tx, e.id));
+  const { contacts, isAdmin } = await withAuthTenant(async (tx, auth) => ({ contacts: await listContacts(tx, e.id), isAdmin: auth.role === "admin" }));
 
   return (
     <div className="space-y-6">
       <Card title="Add a client contact" description="People at the client who confirm items. They need no account.">
-        <ActionForm action={addContactAction} preserveValues className="grid gap-4 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end">
-          <input type="hidden" name="engagementId" value={e.id} />
-          <Input name="name" label="Name" required maxLength={200} autoComplete="off" />
-          <Input name="email" type="email" label="Email" required maxLength={254} autoComplete="off" />
-          <Input name="title" label="Title (optional)" maxLength={200} autoComplete="off" />
-          <Button type="submit">Add contact</Button>
+        <ActionForm action={addContactAction} preserveValues className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end">
+            <input type="hidden" name="engagementId" value={e.id} />
+            <Input name="name" label="Name" required maxLength={200} autoComplete="off" />
+            <Input name="email" type="email" label="Email" required maxLength={254} autoComplete="off" />
+            <Input name="title" label="Title (optional)" maxLength={200} autoComplete="off" />
+            <Button type="submit">Add contact</Button>
+          </div>
+          {e.clientEmailDomains.length > 0 ? (
+            <Checkbox
+              id="acknowledgeOutsideDomains"
+              name="acknowledgeOutsideDomains"
+              label={`The address is not at ${e.clientEmailDomains.join(", ")}, and I confirm this person speaks for ${e.clientName}. (Recorded in the audit log.)`}
+            />
+          ) : null}
         </ActionForm>
       </Card>
 
@@ -70,14 +79,23 @@ export default async function ContactsPage({ params }: { params: Promise<{ id: s
                           The ledger keeps an anonymized trace: their confirmations and disputes remain as &quot;Erased contact&quot;, and the hash chain still
                           verifies. This cannot be undone.
                         </p>
-                        <ActionForm action={eraseContactAction} confirmMessage="Erase this contact's personal data permanently?" className="space-y-3">
-                          <input type="hidden" name="engagementId" value={e.id} />
-                          <input type="hidden" name="contactId" value={c.id} />
-                          <Checkbox id={`understood-${c.id}`} name="understood" required label="I understand this cannot be undone." />
-                          <Button type="submit" variant="danger" size="sm">
-                            Erase personal data
-                          </Button>
-                        </ActionForm>
+                        {isAdmin ? (
+                          <ActionForm action={eraseContactAction} confirmMessage="Erase this contact's personal data permanently?" className="space-y-3">
+                            <input type="hidden" name="engagementId" value={e.id} />
+                            <input type="hidden" name="contactId" value={c.id} />
+                            <Checkbox id={`understood-${c.id}`} name="understood" required label="I understand this cannot be undone." />
+                            <Button type="submit" variant="danger" size="sm">
+                              Erase personal data
+                            </Button>
+                          </ActionForm>
+                        ) : (
+                          <div className="space-y-2">
+                            <p className="font-medium">Only an admin can erase a contact, because it permanently deletes confirmation evidence. Ask an admin of your organization.</p>
+                            <Button type="button" variant="danger" size="sm" disabled>
+                              Erase personal data
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     </details>
                   )}

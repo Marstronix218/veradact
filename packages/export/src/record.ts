@@ -1,15 +1,20 @@
 /**
  * The engagement record (ARCHITECTURE §10): the scope-dispute artifact. Agreed record, every
- * confirmation and dispute with its evidence status, authorizations, the full event list with
- * hashes, and the `verifyChain` result against the expected head.
+ * confirmation and dispute with its evidence status, authorizations with theirs, the full event list
+ * with hashes, the `verifyChain` result against the expected head, and every item version's content
+ * hash recomputed from the log.
  */
 import {
   asOf,
+  itemContentHash,
   verifyChain,
   type AgreedView,
   type AuthorizationDecision,
   type ChainHead,
   type ChainVerification,
+  type Kind,
+  type Manual,
+  type Span,
   type StoredEvent,
 } from "@veradact/core";
 import type { ExportContext } from "./context";
@@ -41,6 +46,16 @@ export interface RecordAuthorization {
   contactId: string;
   decision: AuthorizationDecision;
   textVersion: string;
+  /** The authorization event's `evidence_commitment` checked against its snapshot (§6, D-047). */
+  evidence: EvidenceStatus;
+}
+
+/** Content hashes of `item_created` / `item_revised` payloads, recomputed with `itemContentHash`. */
+export interface ContentHashCheck {
+  /** Item versions checked (one per `item_created` / `item_revised` event). */
+  checked: number;
+  /** Versions whose recomputed hash differs from the stored `content_hash` (or cannot be recomputed). */
+  mismatches: { seq: number; shortId: string; version: number }[];
 }
 
 export interface RecordEvent {
@@ -60,6 +75,8 @@ export interface RecordExport {
   events: RecordEvent[];
   /** `verifyChain(full log, expectedHead)`. */
   verification: ChainVerification;
+  /** Every item version's content hash recomputed from its payload. */
+  contentHashes: ContentHashCheck;
   /** The head the log was checked against (`engagement_head`), or null. */
   expectedHead: ChainHead | null;
 }
@@ -67,7 +84,7 @@ export interface RecordExport {
 export interface RecordFromLogOptions {
   /** Time of the agreed view; defaults to the recorded time of the last event. */
   asOf?: Date;
-  /** Evidence status of the response event at `seq` (from `confirmation_evidence`). */
+  /** Evidence status of the response or authorization event at `seq` (from `confirmation_evidence`). */
   evidenceFor(seq: number, contactId: string): EvidenceStatus;
   /** Dispute comment of the event at `seq`: text, null when erased, undefined to leave out. */
   commentFor?(seq: number): string | null | undefined;
@@ -84,11 +101,24 @@ export function buildRecordExport(events: readonly StoredEvent[], opts: RecordFr
   const shortIds = new Map<string, string>();
   const responses: RecordResponse[] = [];
   const authorizations: RecordAuthorization[] = [];
+  const kinds = new Map<string, Kind>();
+  const contentHashes: ContentHashCheck = { checked: 0, mismatches: [] };
   for (const e of events) {
     switch (e.type) {
       case "item_created":
-        shortIds.set(e.payload.item_id, e.payload.short_id);
+      case "item_revised": {
+        const p = e.payload;
+        if (e.type === "item_created") {
+          shortIds.set(p.item_id, e.payload.short_id);
+          kinds.set(p.item_id, e.payload.kind);
+        }
+        contentHashes.checked += 1;
+        const recomputed = recomputeContentHash(e.engagementId, p, kinds.get(p.item_id));
+        if (recomputed === null || recomputed !== p.content_hash) {
+          contentHashes.mismatches.push({ seq: e.seq, shortId: shortIds.get(p.item_id) ?? String(p.item_id), version: p.version });
+        }
         break;
+      }
       case "item_confirmed":
       case "item_disputed": {
         const p = e.payload;
@@ -118,6 +148,7 @@ export function buildRecordExport(events: readonly StoredEvent[], opts: RecordFr
           contactId: e.payload.contact_id,
           decision: e.type === "authorization_granted" ? "granted" : "declined",
           textVersion: e.payload.text_version,
+          evidence: opts.evidenceFor(e.seq, e.payload.contact_id),
         });
         break;
       default:
@@ -130,8 +161,26 @@ export function buildRecordExport(events: readonly StoredEvent[], opts: RecordFr
     authorizations,
     events: events.map((e) => ({ seq: e.seq, type: e.type, recordedAt: e.recordedAt, occurredAt: e.occurredAt, hash: e.hash, prevHash: e.prevHash })),
     verification: verifyChain(events, opts.expectedHead),
+    contentHashes,
     expectedHead: opts.expectedHead,
   };
+}
+
+/**
+ * `itemContentHash` over a stored payload (raw jsonb, never trusted to be well formed): null when
+ * the item's kind is unknown (a revision without its `item_created`) or the payload cannot be hashed.
+ */
+function recomputeContentHash(
+  engagementId: string,
+  p: { item_id: string; version: number; statement: string; spans: readonly Span[]; manual: Manual | null },
+  kind: Kind | undefined,
+): string | null {
+  if (kind === undefined) return null;
+  try {
+    return itemContentHash({ engagement_id: engagementId, item_id: p.item_id, kind, version: p.version, statement: p.statement, spans: p.spans, manual: p.manual });
+  } catch {
+    return null;
+  }
 }
 
 /** `HALV-record-2026-11-01.md` / `.pdf`: generation date in the engagement time zone. */
@@ -165,8 +214,10 @@ export function verificationSummary(record: RecordExport): VerificationSummary {
     facts.push(["Failure reason", v.reason ? `${CHAIN_FAILURE_TEXT[v.reason]} (${v.reason})` : "unknown"]);
     facts.push(["First bad seq", v.firstBadSeq !== undefined ? String(v.firstBadSeq) : "unknown"]);
   }
+  facts.push([CONTENT_HASH_LABEL, contentHashText(record.contentHashes)]);
   const paragraphs = [
     "Each event's hash is SHA-256 over the event's canonical JSON content, which includes the previous event's hash. Changing, removing, inserting or reordering any event therefore changes every hash after it. This check recomputed every hash from the stored rows, starting at seq 1, and compared each with its stored value and with the link to the event before it.",
+    "Each item version's content hash, the value every confirmation names, was also recomputed from the version's statement, spans and manual marker in the log and compared with the content hash stored in that event.",
   ];
   if (v.ok) {
     paragraphs.push(
@@ -185,6 +236,16 @@ export function verificationSummary(record: RecordExport): VerificationSummary {
   return { ok: v.ok, headline: v.ok ? "Hash-chain verification: OK" : "Hash-chain verification: FAILED", facts, paragraphs };
 }
 
+export const CONTENT_HASH_LABEL = "Item content hashes";
+
+/** `12 of 12 verified` or `11 of 12 verified; 1 MISMATCH (HALV-R1 v2 at seq 14)`. */
+export function contentHashText(check: ContentHashCheck): string {
+  const ok = check.checked - check.mismatches.length;
+  if (check.mismatches.length === 0) return `${ok} of ${check.checked} verified`;
+  const list = check.mismatches.map((m) => `${m.shortId} v${m.version} at seq ${m.seq}`).join(", ");
+  return `${ok} of ${check.checked} verified; ${check.mismatches.length} MISMATCH (${list})`;
+}
+
 export const EVIDENCE_LABEL: Readonly<Record<EvidenceStatus, string>> = {
   verified: "verified",
   erased: "erased",
@@ -193,7 +254,7 @@ export const EVIDENCE_LABEL: Readonly<Record<EvidenceStatus, string>> = {
 };
 
 export const EVIDENCE_LEGEND =
-  "Evidence: verified = the identity snapshot taken at response time matches the commitment in the log; erased = the contact was erased, so the snapshot no longer exists; MISMATCH = the snapshot does not match the commitment; missing = no snapshot was found.";
+  "Evidence: verified = the identity snapshot taken when the contact responded matches the commitment in the log; erased = the contact was erased, so the snapshot no longer exists; MISMATCH = the snapshot does not match the commitment; missing = no snapshot was found.";
 
 export const RESPONSE_LABEL: Readonly<Record<RecordResponse["type"], string>> = {
   item_confirmed: "confirmed",
@@ -249,6 +310,7 @@ export function renderRecordMarkdown(record: RecordExport, ctx: ExportContext): 
     `log_head_seq: ${ctx.head.seq}`,
     `log_head_hash: ${yamlString(ctx.head.hash)}`,
     `chain_verified: ${summary.ok}`,
+    `content_hashes_verified: ${record.contentHashes.mismatches.length === 0}`,
     "---",
     "",
     `# Engagement record: ${mdInline(e.name)}`,
@@ -317,11 +379,13 @@ export function renderRecordMarkdown(record: RecordExport, ctx: ExportContext): 
   out.push("## Authorizations", "");
   if (record.authorizations.length === 0) out.push("No authorizations recorded.", "");
   else {
-    out.push("| Seq | Recorded at (UTC) | Contact | Decision | Text version |", "|---:|---|---|---|---|");
+    out.push("| Seq | Recorded at (UTC) | Contact | Decision | Text version | Evidence |", "|---:|---|---|---|---|---|");
     for (const a of record.authorizations) {
-      out.push(`| ${a.seq} | ${isoUtc(a.recordedAt)} | ${cell(contactLabel(a.contactId, false, ctx))} | ${a.decision} | ${cell(a.textVersion)} |`);
+      out.push(
+        `| ${a.seq} | ${isoUtc(a.recordedAt)} | ${cell(contactLabel(a.contactId, a.evidence === "erased", ctx))} | ${a.decision} | ${cell(a.textVersion)} | ${EVIDENCE_LABEL[a.evidence]} |`,
+      );
     }
-    out.push("");
+    out.push("", EVIDENCE_LEGEND, "");
   }
 
   const badSeq = record.verification.ok ? undefined : record.verification.firstBadSeq;

@@ -18,7 +18,7 @@ import {
   type ResolvedApiTokenAuth,
 } from "@veradact/core";
 import { withTenant, type Db, type Tx } from "@veradact/db";
-import { effectiveAiEnabled, loadSpec, parseAsOf, recordUsage, resolveEngagementRef, resolveItemRef } from "@veradact/export/server";
+import { currentCut, effectiveAiEnabled, loadSpec, parseAsOf, recordUsage, resolveEngagementRef, resolveItemRef } from "@veradact/export/server";
 
 export const SERVER_NAME = "veradact";
 export const SERVER_VERSION = "0.1.0";
@@ -174,7 +174,8 @@ function itemJson(detail: ItemDetail, engagement: { id: string; shortCode: strin
       .sort((a, b) => a.eventSeq - b.eventSeq)
       .map((r) => ({
         response: r.response,
-        contact: r.contactName,
+        // AI-off engagements keep personal data out of what goes to coding agents (D-057).
+        contact: aiEnabled ? r.contactName : "client contact",
         recorded_at: r.recordedAt.toISOString(),
         version: r.version,
         content_hash: r.contentHash,
@@ -286,7 +287,9 @@ export function createVeradactMcpServer(deps: ToolDeps): McpServer {
     ({ engagement_id }) =>
       runTool(deps, "list_unconfirmed", async (tx) => {
         const engagement = await requireEngagement(tx, engagement_id);
-        const view = asOf(await readEvents(tx, engagement.id), deps.clock(), "agreed");
+        // The whole log: recorded_at may run ahead of this server's clock (`currentCut`).
+        const events = await readEvents(tx, engagement.id);
+        const view = asOf(events, currentCut(deps.clock(), events), "agreed");
         const items = view.notConfirmed;
         const lines =
           items.length === 0

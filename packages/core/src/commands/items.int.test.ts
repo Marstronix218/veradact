@@ -11,6 +11,7 @@ import { clientContext, createLedgerEngagement, NOTES_TEXT, type LedgerEngagemen
 import { recordAuthorization, recordClientResponses, requestConfirmation } from "./confirmation";
 import { addContact } from "./contacts";
 import { addDependency, clearReview, createItem, removeDependency, reviseItem, supersedeItem, withdrawItem } from "./items";
+import { AUTHORIZATION_TEXT_VERSION } from "../confirmation/authorization-text";
 
 const app = testDb();
 const admin = adminTestDb();
@@ -224,7 +225,7 @@ describe("dependency flagging (D-011, D-024)", () => {
     const current = await itemState(e, up.itemId);
     const { requestId } = await requestConfirmation(e.ctx, { engagementId: e.engagementId, items: [{ itemId: up.itemId }], contactIds: [contactId] });
     const client = clientContext(e.ctx);
-    await recordAuthorization(client, { engagementId: e.engagementId, requestId, contactId, decision: "granted", text: "I authorize.", textVersion: "v1", evidence: { ip: null, userAgent: null } });
+    await recordAuthorization(client, { engagementId: e.engagementId, requestId, contactId, decision: "granted", text: "I authorize.", textVersion: AUTHORIZATION_TEXT_VERSION, evidence: { ip: null, userAgent: null } });
     await recordClientResponses(client, {
       channel: "email_link",
       engagementId: e.engagementId,

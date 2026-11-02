@@ -1,4 +1,4 @@
-// `pnpm jobs:run` — runs every scheduled job once (reminders now; retention joins in Phase 5) and
+// `pnpm jobs:run` — runs every scheduled job once (reminders, then retention) and
 // exits. Uses the app role (DATABASE_URL); never the admin URL. Loads the repo-root .env outside
 // production; variables already set win.
 import { existsSync } from "node:fs";
@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { createDb } from "@veradact/db";
 import { createEmailProviderFromEnv } from "@veradact/email";
 import { logError } from "../log";
+import { assertProductionSecrets } from "../security/secrets";
 import { runScheduledJobs } from "./index";
 
 const rootEnv = fileURLToPath(new URL("../../../../.env", import.meta.url));
@@ -17,6 +18,7 @@ function required(name: string): string {
   return value;
 }
 
+assertProductionSecrets();
 const handle = createDb(required("DATABASE_URL"), { max: 2 });
 try {
   const result = await runScheduledJobs({

@@ -3,15 +3,16 @@ import { and, eq } from "drizzle-orm";
 import { afterAll, describe, expect, it } from "vitest";
 import { auditLog, clientContact, confirmationEvidence, confirmationLink, contactPii, event, responseComment, withTenant } from "@veradact/db";
 import { adminTestDb, testDb } from "@veradact/db/testing";
-import { DomainError } from "../errors";
+import { DomainError, ForbiddenError } from "../errors";
 import { getItemDetail, listContacts } from "../queries";
 import { dumpProjections, loadState, readEvents, rebuildProjections, verifyEngagementChain } from "../store";
-import { clientContext, createLedgerEngagement, NOTES_TEXT } from "../test-support/ledger";
+import { clientContext, createLedgerEngagement, createLedgerUser, NOTES_TEXT } from "../test-support/ledger";
 import { recordAuthorization, recordClientResponses, requestConfirmation } from "./confirmation";
 import { addContact } from "./contacts";
 import { createItem, reviseItem } from "./items";
 import { eraseContact } from "./privacy";
 import { redactSource } from "./sources";
+import { AUTHORIZATION_TEXT_VERSION } from "../confirmation/authorization-text";
 
 const app = testDb();
 const admin = adminTestDb();
@@ -35,7 +36,7 @@ async function flow() {
   const { contactId } = await addContact(e.ctx, { engagementId: e.engagementId, name: "Ada Lovelace-Client", email: "ada.private@client.example", title: "COO" });
   const { requestId } = await requestConfirmation(e.ctx, { engagementId: e.engagementId, items: [{ itemId: item.itemId }], contactIds: [contactId] });
   const client = clientContext(e.ctx);
-  await recordAuthorization(client, { engagementId: e.engagementId, requestId, contactId, decision: "granted", text: "I authorize Quillfield Labs.", textVersion: "v1", evidence: EVIDENCE });
+  await recordAuthorization(client, { engagementId: e.engagementId, requestId, contactId, decision: "granted", text: "I authorize Quillfield Labs.", textVersion: AUTHORIZATION_TEXT_VERSION, evidence: EVIDENCE });
   await recordClientResponses(client, {
     channel: "email_link",
     engagementId: e.engagementId,
@@ -120,6 +121,18 @@ describe("eraseContact", () => {
     const foreign = await addContact(other.ctx, { engagementId: other.engagementId, name: "Bo Client", email: "bo@client.example" });
     const cross = await eraseContact(e.ctx, { engagementId: e.engagementId, contactId: foreign.contactId }).catch((err: unknown) => err);
     expect((cross as DomainError).code).toBe("contact_not_found");
+  });
+
+  it("is admin only: a member gets forbidden and nothing changes", async () => {
+    const { e, contactId } = await flow();
+    const memberId = await createLedgerUser(admin.db, e.orgId);
+    const before = await withTenant(app.db, { orgId: e.orgId }, (tx) => readEvents(tx, e.engagementId));
+    const error = await eraseContact({ ...e.ctx, userId: memberId }, { engagementId: e.engagementId, contactId }).catch((err: unknown) => err);
+    expect(error).toBeInstanceOf(ForbiddenError);
+    await withTenant(app.db, { orgId: e.orgId }, async (tx) => {
+      expect(await readEvents(tx, e.engagementId)).toEqual(before);
+      expect(await tx.select().from(contactPii).where(eq(contactPii.contactId, contactId))).toHaveLength(1);
+    });
   });
 
   it("erasure and redaction together still leave a verifiable chain", async () => {

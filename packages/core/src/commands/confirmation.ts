@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { and, eq, isNull } from "drizzle-orm";
 import { confirmationEvidence, confirmationLink, responseComment, type Tx } from "@veradact/db";
 import { writeAudit } from "../audit";
+import { AUTHORIZATION_TEXT_VERSION } from "../confirmation/authorization-text";
 import {
   canonicalJson,
   contactRevokedAt,
@@ -318,9 +319,20 @@ export interface RecordClientResponsesResult extends ClientActionResult {
   head: { seq: number; hash: string };
 }
 
+/** The contact and request a recorded submission id belongs to, or null when it is unused. */
+export function submissionOwner(state: EngagementState, submissionId: string): { contactId: string; requestId: string } | null {
+  if (!state.submissions.has(submissionId)) return null;
+  for (const item of state.items.values()) {
+    const response = item.responses.find((r) => r.submissionId === submissionId);
+    if (response) return { contactId: response.contactId, requestId: response.requestId };
+  }
+  return null;
+}
+
 /**
  * Records one client submission (ARCHITECTURE §8.4) as a single append batch: validates the
- * authorization, request membership of the exact item version + content hash, revocation, expiry,
+ * authorization (the contact's latest decision must be a grant of the current
+ * `AUTHORIZATION_TEXT_VERSION`, D-019 — every channel goes through here), request membership of the exact item version + content hash, revocation, expiry,
  * that each item is still active at that version (stale versions → `version_mismatch`), then
  * writes `item_confirmed` / `item_disputed`, the evidence snapshots and dispute comments.
  */
@@ -343,11 +355,16 @@ export async function recordClientResponses(
   return runInTenant(ctx, async (tx) => {
     const { state } = await lockAndLoad(tx, input.engagementId);
     if (state.submissions.has(input.submissionId)) {
+      // A resubmission of the same form is a no-op; the id used by another contact or request is not.
+      const owner = submissionOwner(state, input.submissionId);
+      if (owner?.contactId !== input.contactId || owner.requestId !== input.requestId) throw new DomainError("submission_mismatch");
       return { duplicate: true, events: [], eventIds: [], state, head: { seq: state.headSeq, hash: state.headHash } };
     }
     const authorization = state.authorizations.get(input.contactId);
     if (state.erasedContacts.has(input.contactId)) throw new DomainError("contact_erased", { contactId: input.contactId });
-    if (authorization?.decision !== "granted") throw new DomainError("not_authorized", { contactId: input.contactId });
+    if (authorization?.decision !== "granted" || authorization.textVersion !== AUTHORIZATION_TEXT_VERSION) {
+      throw new DomainError("not_authorized", { contactId: input.contactId });
+    }
     const contact = await requireLiveContact(tx, input.engagementId, input.contactId);
     const request = requireRequest(state, input.requestId);
     const now = ctx.clock();

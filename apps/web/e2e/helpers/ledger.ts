@@ -4,11 +4,15 @@
 import { randomUUID } from "node:crypto";
 import {
   addContact,
+  AUTHORIZATION_TEXT_VERSION,
   clientLinkUrl,
   createEngagement,
   createItem,
   ingestSource,
   linkSigningSecret,
+  parseLinkToken,
+  recordAuthorization,
+  recordClientResponses,
   requestConfirmation,
   seedMetricsScenario,
   signLinkToken,
@@ -104,6 +108,39 @@ export async function createRequestLink(tenant: { orgId: string; userId: string 
   const link = links[0]!;
   const token = signLinkToken({ secret: linkSigningSecret(), linkId: link.linkId, contactId: link.contactId, expiresAt: link.expiresAt });
   return clientLinkUrl(env("APP_URL"), token);
+}
+
+/**
+ * The client side of a confirmation done through the channel-agnostic commands: the fixture's
+ * contact grants authorization on the request behind `clientUrl` and confirms the first item.
+ */
+export async function confirmFirstItem(tenant: { orgId: string }, fixture: LedgerFixture, clientUrl: string): Promise<void> {
+  const parsed = parseLinkToken(clientUrl.split("/c/")[1] ?? "");
+  if (!parsed) throw new Error("not a client link");
+  const [row] = await adminSql()`select request_id from confirmation_link where id = ${parsed.linkId}`;
+  const requestId = (row as { request_id: string }).request_id;
+  const client = { db: appDb(), orgId: tenant.orgId, clock: () => new Date() };
+  const evidence = { ip: "192.0.2.80", userAgent: "Mozilla/5.0 (synthetic e2e)" };
+  const { contactId } = fixture.contact;
+  await recordAuthorization(client, {
+    engagementId: fixture.engagementId,
+    requestId,
+    contactId,
+    decision: "granted",
+    text: "I authorize Veradact to record my responses.",
+    textVersion: AUTHORIZATION_TEXT_VERSION,
+    evidence,
+  });
+  const item = fixture.items[0]!;
+  await recordClientResponses(client, {
+    channel: "email_link",
+    engagementId: fixture.engagementId,
+    requestId,
+    contactId,
+    submissionId: randomUUID(),
+    responses: [{ itemId: item.itemId, version: item.version, contentHash: item.contentHash, decision: "confirmed" }],
+    evidence,
+  });
 }
 
 /** Moves every link of this contact into the past (simulates expiry; admin URL, test only). */

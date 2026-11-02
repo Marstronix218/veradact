@@ -124,6 +124,11 @@ export const engagement = pgTable(
     shortCode: text("short_code").notNull(),
     timeZone: text("time_zone").notNull(),
     aiEnabled: boolean("ai_enabled").notNull().default(true),
+    /**
+     * Email domains the client uses (lower case, sorted). When set, adding a contact outside them
+     * needs an explicit acknowledgement, which is audited (D-057). Empty = no check.
+     */
+    clientEmailDomains: text("client_email_domains").array().notNull().default(sql`'{}'::text[]`),
     status: text("status", { enum: engagementStatuses }).notNull().default("active"),
     createdBy: uuid("created_by").notNull(),
     createdAt: tstz("created_at").notNull(),

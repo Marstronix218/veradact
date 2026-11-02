@@ -12,6 +12,7 @@ export {
   deactivatedEmail,
   deactivateUser,
   getCurrentUser,
+  INVITE_CONFLICT_MESSAGE,
   inviteUser,
   listUsers,
   USER_NAME_MAX_LENGTH,

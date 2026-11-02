@@ -1,6 +1,6 @@
 // Source ingest and redaction (ARCHITECTURE §2.3, §2.4, §6, §9.2).
 import { randomUUID } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { candidate, org, sourceContent } from "@veradact/db";
 import { writeAudit } from "../audit";
 import {
@@ -157,9 +157,10 @@ export interface RedactSourceInput {
 }
 
 /**
- * Deletes `source_content` and the source's pending candidates, appends `source_redacted` and
- * audits. Item versions keep their spans (and content hashes); quotes can no longer be shown.
- * `ctx.userId = null` records the `system` actor (retention).
+ * Deletes `source_content` and every candidate extracted from the source (pending, accepted and
+ * rejected rows all copy its text), appends `source_redacted` and audits. Item versions keep their
+ * spans (and content hashes); quotes can no longer be shown. `ctx.userId = null` records the
+ * `system` actor (retention).
  */
 export async function redactSource(
   ctx: UserOrSystemContext,
@@ -173,7 +174,7 @@ export async function redactSource(
     if (source.redacted) throw new DomainError("source_redacted", { sourceId: input.sourceId });
 
     await tx.delete(sourceContent).where(eq(sourceContent.sourceId, input.sourceId));
-    await tx.delete(candidate).where(and(eq(candidate.sourceId, input.sourceId), eq(candidate.status, "pending")));
+    await tx.delete(candidate).where(eq(candidate.sourceId, input.sourceId));
 
     const now = ctx.clock();
     const result = await appendEvents(

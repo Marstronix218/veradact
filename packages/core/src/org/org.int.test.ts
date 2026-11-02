@@ -11,7 +11,7 @@ import { createSession, resolveSession } from "../auth/session";
 import { requestMagicLink } from "../auth/magic-link";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../errors";
 import { getOrgSettings, updateOrgSettings } from "./settings";
-import { deactivatedEmail, deactivateUser, getCurrentUser, inviteUser, listUsers } from "./users";
+import { deactivatedEmail, deactivateUser, getCurrentUser, INVITE_CONFLICT_MESSAGE, inviteUser, listUsers } from "./users";
 import { withTenant } from "@veradact/db";
 
 const app = testDb();
@@ -194,8 +194,14 @@ describe("users", () => {
       role: "member" as const,
     };
     await expect(inviteUser({ ...base, email: t.user.email })).rejects.toBeInstanceOf(ConflictError);
-    // Emails are unique across orgs (one org per user in the MVP).
-    await expect(inviteUser({ ...base, email: other.user.email.toUpperCase() })).rejects.toBeInstanceOf(ConflictError);
+    // Emails are unique across orgs (one org per user in the MVP); the message is the same as for
+    // an address of this org, so an admin learns nothing about other tenants' users.
+    const own = (await inviteUser({ ...base, email: t.user.email }).catch((error: unknown) => error)) as Error;
+    const foreign = (await inviteUser({ ...base, email: other.user.email.toUpperCase() }).catch((error: unknown) => error)) as Error;
+    expect(foreign).toBeInstanceOf(ConflictError);
+    expect(foreign.message).toBe(INVITE_CONFLICT_MESSAGE);
+    expect(own.message).toBe(INVITE_CONFLICT_MESSAGE);
+    expect(foreign.message).not.toMatch(/Veradact user|already/i);
     await expect(inviteUser({ ...base, email: "not-an-email" })).rejects.toBeInstanceOf(ValidationError);
     await expect(inviteUser({ ...base, email: `x-${randomUUID()}@example.test`, name: " " })).rejects.toBeInstanceOf(
       ValidationError,

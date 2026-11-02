@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { archiveEngagement, isDomainError, reactivateEngagement, setEngagementAiEnabled, updateEngagement } from "@veradact/core";
+import { archiveEngagement, isDomainError, reactivateEngagement, setClientEmailDomains, setEngagementAiEnabled, updateEngagement } from "@veradact/core";
 import { runAction } from "@/lib/actions";
 import { commandContext, field } from "@/lib/commands";
 import type { FormState } from "@/lib/form-state";
@@ -52,5 +52,16 @@ export async function setEngagementStatusAction(_prev: FormState, formData: Form
     else await reactivateEngagement(ctx, { engagementId });
     revalidateEngagement(engagementId);
     return field(formData, "status") === "archived" ? "Engagement archived." : "Engagement reactivated.";
+  });
+}
+
+/** Client email domains (D-057): contacts outside them need an audited acknowledgement. */
+export async function setClientEmailDomainsAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  return runAction(async () => {
+    const ctx = await commandContext();
+    const engagementId = field(formData, "engagementId");
+    const { domains } = await setClientEmailDomains(ctx, { engagementId, domains: field(formData, "domains") });
+    revalidateEngagement(engagementId);
+    return domains.length > 0 ? `Client email domains saved: ${domains.join(", ")}.` : "Client email domains cleared. Contacts can have any address.";
   });
 }

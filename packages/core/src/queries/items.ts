@@ -5,6 +5,7 @@ import {
   appUser,
   candidate,
   clientContact,
+  confirmationEvidence,
   contactPii,
   event,
   eventNote,
@@ -148,6 +149,11 @@ export interface ResponseDetail {
   /** Contact name, or "Erased contact". */
   contactName: string;
   contactErased: boolean;
+  /**
+   * Domain of the address the confirmer had when responding (evidence snapshot), so a confirmation
+   * from outside the client's domains is visible (D-057). Null once erased or without a snapshot.
+   */
+  contactEmailDomain: string | null;
   requestId: string;
   submissionId: string;
   response: ResponseDecision;
@@ -295,12 +301,14 @@ export async function getItemDetail(tx: Tx, engagementId: string, itemRef: strin
 
   const idBySeq = new Map(eventIds.map((e) => [e.seq, e.id]));
   const ids = [...idBySeq.values()];
-  const [notes, comments] = ids.length
+  const [notes, comments, evidence] = ids.length
     ? await Promise.all([
         tx.select().from(eventNote).where(inArray(eventNote.eventId, ids)),
         tx.select({ eventId: responseComment.eventId, comment: responseComment.comment }).from(responseComment).where(inArray(responseComment.eventId, ids)),
+        tx.select({ eventId: confirmationEvidence.eventId, email: confirmationEvidence.email }).from(confirmationEvidence).where(inArray(confirmationEvidence.eventId, ids)),
       ])
-    : [[], []];
+    : [[], [], []];
+  const domainByEvent = new Map(evidence.map((e) => [e.eventId, e.email.slice(e.email.lastIndexOf("@") + 1)]));
   const noteByEvent = new Map(notes.map((n) => [n.eventId, n.note]));
   const commentByEvent = new Map(comments.map((c) => [c.eventId, c.comment]));
   const sourceById = new Map(sources.map((s) => [s.id, s]));
@@ -320,6 +328,7 @@ export async function getItemDetail(tx: Tx, engagementId: string, itemRef: strin
       contactId: r.contactId,
       contactName: erased ? ERASED_CONTACT_NAME : contact.name!,
       contactErased: erased,
+      contactEmailDomain: erased || eventId === undefined ? null : (domainByEvent.get(eventId) ?? null),
       requestId: r.requestId,
       submissionId: r.submissionId,
       response: r.response,

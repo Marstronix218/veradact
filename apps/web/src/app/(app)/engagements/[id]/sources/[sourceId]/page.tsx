@@ -133,7 +133,7 @@ export default async function SourcePage({ params }: { params: Promise<{ id: str
       )}
 
       {s.content ? (
-        <Card title="Redact this source" description="Deletes the text, title, participants and pending AI suggestions from this source. The ledger keeps a redaction record; items keep their citations without quotes.">
+        <Card title="Redact this source" description="Deletes the text, title, participants and AI suggestions from this source. The ledger keeps a redaction record; items keep their citations without quotes.">
           <ActionForm
             action={redactSourceAction}
             confirmMessage="Redact this source? Its text is deleted permanently and cannot be restored."

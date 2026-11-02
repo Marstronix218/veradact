@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ValidationError } from "@veradact/core";
-import { parseAsOf } from "./as-of";
+import { currentCut, parseAsOf } from "./as-of";
 
 const NY = "America/New_York";
 
@@ -33,4 +33,15 @@ describe("parseAsOf (ARCHITECTURE §1.1)", () => {
       expect((error as ValidationError).field).toBe("as_of");
     },
   );
+});
+
+describe("currentCut", () => {
+  const now = new Date("2026-03-15T12:00:00.000Z");
+  const at = (iso: string) => ({ recordedAt: new Date(iso) });
+
+  it("is the reader's now unless the log was recorded ahead of it", () => {
+    expect(currentCut(now, [])).toBe(now);
+    expect(currentCut(now, [at("2026-03-01T00:00:00.000Z"), at("2026-03-15T11:59:59.999Z")])).toBe(now);
+    expect(currentCut(now, [at("2026-03-01T00:00:00.000Z"), at("2026-03-20T15:00:00.000Z")]).toISOString()).toBe("2026-03-20T15:00:00.000Z");
+  });
 });

@@ -4,9 +4,12 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import { clientContact, contactPii, engagement, type Tx } from "@veradact/db";
+import { writeAudit } from "../audit";
 import { normalizeEmail } from "../auth/email-address";
 import { DomainError } from "../errors";
+import { logId } from "../log";
 import { runInTenant, type CommandContext } from "./context";
+import { emailInDomains } from "./engagements";
 
 const NAME_MAX = 200;
 export const CONTACT_HMAC_KEY_BYTES = 32;
@@ -35,6 +38,29 @@ export interface AddContactInput {
   name: string;
   email: string;
   title?: string | null;
+  /**
+   * The member confirms that an address outside the engagement's client email domains speaks for
+   * the client (D-057). Required in that case; audited as `contact.outside_domains`.
+   */
+  acknowledgeOutsideDomains?: boolean;
+}
+
+/**
+ * Self-confirmation guard (D-057): with client email domains set, an address outside them needs
+ * the member's acknowledgement, which is audited (ids only).
+ */
+async function checkClientDomains(tx: Tx, ctx: CommandContext, input: { engagementId: string; contactId: string; acknowledgeOutsideDomains?: boolean }, email: string, domains: readonly string[]): Promise<void> {
+  if (domains.length === 0 || emailInDomains(email, domains)) return;
+  if (input.acknowledgeOutsideDomains !== true) throw new DomainError("contact_outside_client_domains");
+  await writeAudit(tx, {
+    orgId: ctx.orgId,
+    actorUserId: ctx.userId,
+    action: "contact.outside_domains",
+    targetType: "contact",
+    targetId: input.contactId,
+    metadata: { engagement_id: logId(input.engagementId), client_email_domains_count: domains.length },
+    at: ctx.clock(),
+  });
 }
 
 /** Creates `client_contact` + `contact_pii` with a fresh random 32-byte HMAC key. */
@@ -44,9 +70,10 @@ export async function addContact(ctx: CommandContext, input: AddContactInput): P
   const title = cleanTitle(input.title);
   const contactId = input.contactId ?? randomUUID();
   return runInTenant(ctx, async (tx) => {
-    const [found] = await tx.select({ id: engagement.id }).from(engagement).where(eq(engagement.id, input.engagementId));
+    const [found] = await tx.select({ id: engagement.id, domains: engagement.clientEmailDomains }).from(engagement).where(eq(engagement.id, input.engagementId));
     if (!found) throw new DomainError("engagement_not_found");
     await tx.insert(clientContact).values({ id: contactId, orgId: ctx.orgId, engagementId: input.engagementId, createdAt: ctx.clock() });
+    await checkClientDomains(tx, ctx, { ...input, contactId }, email, found.domains);
     await tx.insert(contactPii).values({
       contactId,
       orgId: ctx.orgId,
@@ -66,6 +93,8 @@ export interface UpdateContactInput {
   email?: string;
   /** null or "" clears the title. */
   title?: string | null;
+  /** As for `addContact`, when the new email is outside the client email domains. */
+  acknowledgeOutsideDomains?: boolean;
 }
 
 /** Updates PII only (the HMAC key never changes). Erased contacts cannot be updated. */
@@ -77,6 +106,10 @@ export async function updateContact(ctx: CommandContext, input: UpdateContactInp
   if (Object.keys(patch).length === 0) throw new DomainError("nothing_to_update");
   await runInTenant(ctx, async (tx) => {
     await requireLiveContact(tx, input.engagementId, input.contactId);
+    if (patch.email !== undefined) {
+      const [row] = await tx.select({ domains: engagement.clientEmailDomains }).from(engagement).where(eq(engagement.id, input.engagementId));
+      await checkClientDomains(tx, ctx, input, patch.email, row?.domains ?? []);
+    }
     await tx.update(contactPii).set(patch).where(eq(contactPii.contactId, input.contactId));
   });
 }

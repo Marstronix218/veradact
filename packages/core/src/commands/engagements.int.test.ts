@@ -7,8 +7,8 @@ import { emptyState } from "../domain";
 import { DomainError } from "../errors";
 import { loadState, readEvents } from "../store";
 import { createLedgerEngagement, createLedgerTenant, ledgerContext } from "../test-support/ledger";
-import { addContact } from "./contacts";
-import { archiveEngagement, createEngagement, isValidTimeZone, reactivateEngagement, updateEngagement } from "./engagements";
+import { addContact, updateContact } from "./contacts";
+import { archiveEngagement, createEngagement, emailInDomains, isValidTimeZone, normalizeEmailDomains, reactivateEngagement, setClientEmailDomains, updateEngagement } from "./engagements";
 import { createItem } from "./items";
 
 const app = testDb();
@@ -105,6 +105,38 @@ describe("updateEngagement / archive / reactivate", () => {
     expect(active[0]).toMatchObject({ status: "active", archivedAt: null });
     const after = await withTenant(app.db, { orgId: e.orgId }, (tx) => readEvents(tx, e.engagementId));
     expect(after).toEqual(before);
+  });
+});
+
+describe("client email domains (D-057)", () => {
+  it("normalizes the list and rejects non-domains", () => {
+    expect(normalizeEmailDomains(" Client.example, @eu.client.example;client.example ")).toEqual(["client.example", "eu.client.example"]);
+    expect(normalizeEmailDomains("")).toEqual([]);
+    for (const bad of ["not a domain", "client", "a@b.example", "-x.example"]) expect(() => normalizeEmailDomains(bad)).toThrow(DomainError);
+    expect(emailInDomains("ada@eu.client.example", ["client.example"])).toBe(true);
+    expect(emailInDomains("ada@notclient.example", ["client.example"])).toBe(false);
+  });
+
+  it("a contact outside the domains needs an acknowledgement, which is audited with ids only", async () => {
+    const e = await createLedgerEngagement(app, admin.db);
+    expect(await setClientEmailDomains(e.ctx, { engagementId: e.engagementId, domains: "client.example" })).toEqual({ domains: ["client.example"] });
+    // Unchanged list: no second audit row.
+    await setClientEmailDomains(e.ctx, { engagementId: e.engagementId, domains: ["CLIENT.example"] });
+
+    await addContact(e.ctx, { engagementId: e.engagementId, name: "Ada Client", email: "ada@client.example" });
+    expect(await codeOf(addContact(e.ctx, { engagementId: e.engagementId, name: "Mallory", email: "mallory@vendor.example" }))).toBe("contact_outside_client_domains");
+    const { contactId } = await addContact(e.ctx, { engagementId: e.engagementId, name: "Mallory", email: "mallory@vendor.example", acknowledgeOutsideDomains: true });
+    // Changing an address to an outside one needs the same acknowledgement.
+    const { contactId: ada2 } = await addContact(e.ctx, { engagementId: e.engagementId, name: "Ada Two", email: "ada2@client.example" });
+    expect(await codeOf(updateContact(e.ctx, { engagementId: e.engagementId, contactId: ada2, email: "ada2@gmail.example" }))).toBe("contact_outside_client_domains");
+
+    await withTenant(app.db, { orgId: e.orgId }, async (tx) => {
+      const rows = await tx.select().from(auditLog).where(eq(auditLog.orgId, e.orgId));
+      expect(rows.filter((r) => r.action === "engagement.update").map((r) => r.metadata)).toEqual([{ client_email_domains_count_before: 0, client_email_domains_count_after: 1 }]);
+      expect(rows.filter((r) => r.action === "contact.outside_domains").map((r) => ({ target: r.targetId, metadata: r.metadata }))).toEqual([
+        { target: contactId, metadata: { engagement_id: e.engagementId, client_email_domains_count: 1 } },
+      ]);
+    });
   });
 });
 

@@ -9,6 +9,7 @@ import {
 } from "./detect";
 import { IngestError } from "./errors";
 import { leadingSpeakerLabel } from "./speaker";
+import { assertZipWithinLimits } from "./zip-guard";
 
 export interface ParseSourceInput {
   format: SourceFormat;
@@ -109,16 +110,22 @@ function fromLines(lines: Line[], allowListMarker: boolean): { text: string; seg
   return { text, segments };
 }
 
-async function docxText(bytes: Uint8Array): Promise<string> {
+async function docxText(bytes: Uint8Array, maxBytes: number): Promise<string> {
+  // Bounds what mammoth/JSZip will inflate (decompression bombs) before it runs.
+  assertZipWithinLimits(bytes);
+  let text: string;
   try {
     const result = await mammoth.extractRawText({
       buffer: Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength),
     });
-    return result.value;
+    text = result.value;
   } catch {
     // mammoth's error text can quote document content; never pass it on.
     throw new IngestError("invalid_docx");
   }
+  // The extracted text obeys the same limit as an uploaded text file.
+  if (Buffer.byteLength(text, "utf8") > maxBytes) throw new IngestError("too_large");
+  return text;
 }
 
 /**
@@ -146,7 +153,7 @@ export async function parseSource(input: ParseSourceInput): Promise<ParsedSource
     } else {
       assertValidBytes(format, input.bytes, maxBytes);
     }
-    rawText = format === "docx" ? await docxText(input.bytes) : decodeUtf8(input.bytes);
+    rawText = format === "docx" ? await docxText(input.bytes, maxBytes) : decodeUtf8(input.bytes);
   } else {
     if (format === "docx") throw new IngestError("invalid_input");
     rawText = input.text ?? "";

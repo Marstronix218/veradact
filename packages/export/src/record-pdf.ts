@@ -11,6 +11,7 @@ import {
   APPENDIX_CODE,
   APPENDIX_INTRO,
   APPENDIX_STEPS,
+  CONTENT_HASH_LABEL,
   EVIDENCE_LABEL,
   EVIDENCE_LEGEND,
   RESPONSE_LABEL,
@@ -230,8 +231,8 @@ function writeRecord(doc: PDFKit.PDFDocument, record: RecordExport, ctx: ExportC
   doc.y += 6;
   w.text(summary.headline, { font: FONT.bold, size: 14, color: accent, indent: 10, gap: 4 });
   for (const [label, value] of summary.facts) {
-    const failed = label === "Result" && !summary.ok;
-    w.field(label, value, { font: failed ? FONT.bold : FONT.regular, color: failed ? accent : COLOR.text, indent: 10 });
+    const failed = (label === "Result" && !summary.ok) || (label === CONTENT_HASH_LABEL && record.contentHashes.mismatches.length > 0);
+    w.field(label, value, { font: failed ? FONT.bold : FONT.regular, color: failed ? COLOR.fail : COLOR.text, indent: 10 });
   }
   w.space(4);
   for (const p of summary.paragraphs) w.text(p, { size: 8.5, indent: 10, gap: 4 });
@@ -317,15 +318,18 @@ function writeRecord(doc: PDFKit.PDFDocument, record: RecordExport, ctx: ExportC
     w.table(
       [
         { header: "Seq", width: 30, align: "right" },
-        { header: "Recorded at (UTC)", width: 120 },
-        { header: "Contact", width: 180 },
-        { header: "Decision", width: 80 },
-        { header: "Text version", width: 94 },
+        { header: "Recorded at (UTC)", width: 108 },
+        { header: "Contact", width: 150 },
+        { header: "Decision", width: 60 },
+        { header: "Text version", width: 90 },
+        { header: "Evidence", width: 66 },
       ],
       record.authorizations.map((a) => ({
-        cells: [String(a.seq), isoUtc(a.recordedAt), contactLabel(a.contactId, false, ctx), a.decision, a.textVersion],
+        cells: [String(a.seq), isoUtc(a.recordedAt), contactLabel(a.contactId, a.evidence === "erased", ctx), a.decision, a.textVersion, EVIDENCE_LABEL[a.evidence]],
+        color: a.evidence === "mismatch" ? COLOR.fail : undefined,
       })),
     );
+    w.text(EVIDENCE_LEGEND, { size: 7.5, color: COLOR.muted });
   }
 
   // Event log.

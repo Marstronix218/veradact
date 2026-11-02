@@ -5,7 +5,7 @@ import { existsSync, realpathSync } from "node:fs";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { checkRateLimit, log, logError, logId, resolveApiToken } from "@veradact/core";
+import { checkRateLimit, clientIpFromForwardedFor, log, logError, logId, resolveApiToken, trustedProxyHops } from "@veradact/core";
 import { createDb, type Db } from "@veradact/db";
 import { createVeradactMcpServer } from "./tools";
 
@@ -26,6 +26,8 @@ export interface McpHttpServerOptions {
   clock?: () => Date;
   rateLimits?: Partial<RateLimits>;
   maxBodyBytes?: number;
+  /** Proxies in front of the server that append to X-Forwarded-For. Default: `TRUSTED_PROXY_HOPS` (1). */
+  trustedProxyHops?: number;
 }
 
 const UNAUTHORIZED_MESSAGE =
@@ -48,14 +50,12 @@ function bearerToken(req: IncomingMessage): string | null {
 }
 
 /**
- * Client IP: the first `x-forwarded-for` entry (set by the proxy in front of the server), else
- * `x-real-ip`, else the socket address — the same rule as the web app. Deploy behind a proxy that
- * overwrites these headers. Used only as a rate-limit key (hashed), never logged.
+ * Client IP: the `x-forwarded-for` entry written by the first of `trustedProxyHops` proxies (the
+ * web app's rule), else the socket address. With 0 hops the header is ignored. Used only as a
+ * rate-limit key (hashed), never logged.
  */
-function clientIp(req: IncomingMessage): string {
-  const forwarded = header(req, "x-forwarded-for")?.split(",")[0]?.trim();
-  if (forwarded) return forwarded;
-  return header(req, "x-real-ip")?.trim() || req.socket.remoteAddress || "unknown";
+function clientIp(req: IncomingMessage, trustedProxyHops: number): string {
+  return clientIpFromForwardedFor(header(req, "x-forwarded-for"), trustedProxyHops, req.socket.remoteAddress || "unknown");
 }
 
 /** An `http.Server` (not listening) serving `/mcp` and `/healthz`. */
@@ -64,6 +64,7 @@ export function createMcpHttpServer(options: McpHttpServerOptions): Server {
   const clock = options.clock ?? (() => new Date());
   const limits: RateLimits = { ...DEFAULT_RATE_LIMITS, ...options.rateLimits };
   const maxBodyBytes = options.maxBodyBytes ?? MAX_BODY_BYTES;
+  const hops = options.trustedProxyHops ?? trustedProxyHops();
 
   async function handleMcp(req: IncomingMessage, res: ServerResponse): Promise<void> {
     const started = Date.now();
@@ -72,7 +73,7 @@ export function createMcpHttpServer(options: McpHttpServerOptions): Server {
       sendError(res, 405, "Method not allowed: this server is stateless; send JSON-RPC requests with POST.", { allow: "POST" });
       return;
     }
-    const ipLimit = await checkRateLimit(db, { scope: "mcp_ip", id: clientIp(req), limit: limits.perIpPerMinute, windowSeconds: WINDOW_SECONDS, now: clock() });
+    const ipLimit = await checkRateLimit(db, { scope: "mcp_ip", id: clientIp(req, hops), limit: limits.perIpPerMinute, windowSeconds: WINDOW_SECONDS, now: clock() });
     if (!ipLimit.allowed) {
       log.warn("mcp.rate_limited", { scope: "mcp_ip" as const, retryAfterSeconds: ipLimit.retryAfterSeconds });
       sendError(res, 429, "Too many requests. Try again later.", { "retry-after": String(ipLimit.retryAfterSeconds) });
@@ -135,9 +136,10 @@ export function createMcpHttpServer(options: McpHttpServerOptions): Server {
 // ---------------------------------------------------------------------------------------------
 // Entry point (`pnpm --filter @veradact/mcp dev|start`). Importing this module starts nothing.
 
+/** The repo-root .env outside production (like the web app and `pnpm jobs:run`); set variables win. */
 function loadRootEnv(): void {
   const path = fileURLToPath(new URL("../../../.env", import.meta.url));
-  if (existsSync(path)) process.loadEnvFile(path);
+  if (process.env.NODE_ENV !== "production" && existsSync(path)) process.loadEnvFile(path);
 }
 
 function main(): void {

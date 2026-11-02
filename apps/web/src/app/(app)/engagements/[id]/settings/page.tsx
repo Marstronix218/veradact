@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ActionForm, Badge, Button, Card, Input, Notice, Select } from "@/components";
 import { requireEngagement } from "@/lib/engagement";
 import { COMMON_TIME_ZONES } from "@/lib/time-zones";
-import { setEngagementAiAction, setEngagementStatusAction, updateEngagementAction } from "./actions";
+import { setClientEmailDomainsAction, setEngagementAiAction, setEngagementStatusAction, updateEngagementAction } from "./actions";
 
 export const metadata: Metadata = { title: "Engagement settings" };
 
@@ -57,6 +57,19 @@ export default async function EngagementSettingsPage({ params }: { params: Promi
           <input type="hidden" name="enabled" value={e.aiEnabled ? "false" : "true"} />
           <Button type="submit" variant={e.aiEnabled ? "danger" : "secondary"}>
             {e.aiEnabled ? "Turn AI off" : "Turn AI on"}
+          </Button>
+        </ActionForm>
+      </Card>
+
+      <Card
+        title="Client email domains"
+        description="The email domains the client uses, such as client.example. Adding a contact with an address elsewhere then needs an explicit confirmation, which is recorded in the audit log, and confirmations show the confirmer's email domain. Leave empty to allow any address."
+      >
+        <ActionForm action={setClientEmailDomainsAction} preserveValues className="space-y-4">
+          <input type="hidden" name="engagementId" value={e.id} />
+          <Input name="domains" label="Domains" maxLength={2000} defaultValue={e.clientEmailDomains.join(", ")} hint="Separate several domains with commas. Subdomains are included." />
+          <Button type="submit" variant="secondary">
+            Save domains
           </Button>
         </ActionForm>
       </Card>

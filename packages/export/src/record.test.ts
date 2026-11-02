@@ -1,4 +1,4 @@
-import { verifyChain, type StoredEvent } from "@veradact/core";
+import { computeEventHash, verifyChain, type StoredEvent } from "@veradact/core";
 import { describe, expect, it } from "vitest";
 import { buildRecordExport, recordFilename, renderRecordMarkdown, type EvidenceStatus } from "./record";
 import { contextFor, halvLog, NAMES, QUOTES, STATEMENTS } from "./test-fixtures";
@@ -14,6 +14,23 @@ function halvRecord(events?: StoredEvent[]) {
     expectedHead: head,
   });
   return { b, log, head, record, ctx: contextFor(b, log) };
+}
+
+/**
+ * A forged log: one item statement changed, then every hash from there recomputed, so the chain
+ * verifies but the stored content hash no longer matches the content.
+ */
+function rechainedLog(log: StoredEvent[], seq: number): StoredEvent[] {
+  let prevHash = "";
+  return log.map((e) => {
+    let next: StoredEvent = e.seq === seq && e.type === "item_created" ? ({ ...e, payload: { ...e.payload, statement: "Changed after the fact" } } as StoredEvent) : e;
+    if (e.seq >= seq) {
+      next = { ...next, prevHash } as StoredEvent;
+      next = { ...next, hash: computeEventHash(next) } as StoredEvent;
+    }
+    prevHash = next.hash;
+    return next;
+  });
 }
 
 /** A copy of the log with one item statement changed in place (what a DB edit would do). */
@@ -38,7 +55,33 @@ describe("buildRecordExport", () => {
     ]);
     expect(record.responses.filter((r) => r.comment !== undefined).map((r) => r.shortId)).toEqual(["HALV-R3"]);
     expect(record.authorizations.map((a) => a.decision)).toEqual(["granted", "granted"]);
+    const bob = b.id("contact:bob");
+    expect(record.authorizations.map((a) => [a.contactId === bob ? "bob" : "alice", a.evidence])).toEqual([
+      ["alice", "verified"],
+      ["bob", "erased"],
+    ]);
     expect(record.agreed.items.map((i) => i.shortId)).toEqual(["HALV-P1", "HALV-C1", "HALV-C2", "HALV-A1", "HALV-R1"]);
+    const versions = b.log.filter((e) => e.type === "item_created" || e.type === "item_revised").length;
+    expect(versions).toBeGreaterThan(5);
+    expect(record.contentHashes).toEqual({ checked: versions, mismatches: [] });
+  });
+
+  it("recomputes every item content hash and reports a mismatch even when the chain verifies", () => {
+    const b = halvLog();
+    const target = b.log.find((e) => e.type === "item_created")!;
+    const forged = rechainedLog(b.log, target.seq);
+    const last = forged.at(-1)!;
+    const record = buildRecordExport(forged, { evidenceFor: () => "verified", expectedHead: { seq: last.seq, hash: last.hash } });
+    expect(record.verification.ok).toBe(true);
+    const shortId = (target.payload as { short_id: string }).short_id;
+    expect(record.contentHashes.mismatches).toEqual([{ seq: target.seq, shortId, version: 1 }]);
+
+    const md = renderRecordMarkdown(record, contextFor(b, forged));
+    const n = record.contentHashes.checked;
+    expect(md).toContain("**Hash-chain verification: OK**");
+    expect(md).toContain("chain_verified: true");
+    expect(md).toContain("content_hashes_verified: false");
+    expect(md).toContain(`- **Item content hashes:** ${n - 1} of ${n} verified; 1 MISMATCH (${shortId} v1 at seq ${target.seq})`);
   });
 });
 
@@ -54,6 +97,8 @@ describe("renderRecordMarkdown", () => {
     expect(md).toContain(`- **Expected head hash:** \`${head.hash}\``);
     expect(md).toContain("confirmation receipts emailed to the client");
     expect(md).toContain("chain_verified: true");
+    expect(md).toContain("content_hashes_verified: true");
+    expect(md).toContain(`- **Item content hashes:** ${record.contentHashes.checked} of ${record.contentHashes.checked} verified`);
     expect(md).not.toContain("First bad seq");
   });
 
@@ -99,7 +144,9 @@ describe("renderRecordMarkdown", () => {
     }
     expect(md).not.toContain(NAMES.bob);
     expect(md).toContain("  > Portal access was promised \\| \\<b\\>in March\\</b\\>");
-    expect(md).toContain(`| ${record.authorizations[0]!.seq} | ${record.authorizations[0]!.recordedAt.toISOString()} | ${NAMES.alice} | granted | v1 |`);
+    const [aliceAuth, bobAuth] = record.authorizations;
+    expect(md).toContain(`| ${aliceAuth!.seq} | ${aliceAuth!.recordedAt.toISOString()} | ${NAMES.alice} | granted | v1 | verified |`);
+    expect(md).toContain(`| ${bobAuth!.seq} | ${bobAuth!.recordedAt.toISOString()} | Erased contact | granted | v1 | erased |`);
     expect(md).toContain("## Appendix: recomputing the hashes");
     expect(md).toContain("canonical JSON");
   });

@@ -59,6 +59,9 @@ test("a sign-in form posted from another origin is rejected", async ({ page, req
   expect(forged.headers()["location"]).toMatch(/\/login\?error=link$/);
   const crossSite = await request.post("/auth/verify", { form: { token }, headers: { origin: "null", "sec-fetch-site": "cross-site" }, maxRedirects: 0 });
   expect(crossSite.headers()["location"]).toMatch(/\/login\?error=link$/);
+  // An opaque origin without Fetch Metadata (older browsers, sandboxed frames) is refused too.
+  const opaque = await request.post("/auth/verify", { form: { token }, headers: { origin: "null" }, maxRedirects: 0 });
+  expect(opaque.headers()["location"]).toMatch(/\/login\?error=link$/);
   // The token was not consumed.
   await openMagicLink(page, link);
   await expect(page).toHaveURL(/\/engagements$/);

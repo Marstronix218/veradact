@@ -113,6 +113,9 @@ export const LEDGER_ERROR_MESSAGES = {
   invalid_comment: "Comments are at most 5000 characters.",
   invalid_note: "Notes are at most 2000 characters.",
   invalid_authorization_text: "The authorization text is missing or too long.",
+  submission_mismatch: "This form was already used for another response. Reload the page and try again.",
+  invalid_email_domain: "Enter up to 20 email domains such as client.example, separated by commas.",
+  contact_outside_client_domains: "That address is not at one of the client's email domains. Confirm that this person speaks for the client to add them anyway.",
 } as const;
 
 export type LedgerErrorCode = keyof typeof LEDGER_ERROR_MESSAGES;

@@ -39,5 +39,10 @@ describe("link tokens", () => {
     expect(() => linkSigningSecret({})).toThrow(/LINK_SIGNING_SECRET/);
     expect(() => linkSigningSecret({ LINK_SIGNING_SECRET: "short" })).toThrow(/at least 32/);
     expect(linkSigningSecret({ LINK_SIGNING_SECRET: ` ${secret} ` })).toBe(secret);
+    // The .env.example value works in development and is refused in production.
+    const placeholder = "dev-only-change-me-link-secret-0000000";
+    expect(linkSigningSecret({ LINK_SIGNING_SECRET: placeholder })).toBe(placeholder);
+    expect(() => linkSigningSecret({ LINK_SIGNING_SECRET: placeholder, NODE_ENV: "production" })).toThrow(/placeholder/);
+    expect(linkSigningSecret({ LINK_SIGNING_SECRET: secret, NODE_ENV: "production" })).toBe(secret);
   });
 });

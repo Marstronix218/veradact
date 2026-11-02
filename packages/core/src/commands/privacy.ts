@@ -2,10 +2,10 @@
 // contact's HMAC key are deleted; event rows are untouched, so the chain still verifies and the
 // commitments in the log become unlinkable.
 import { and, eq, isNull } from "drizzle-orm";
-import { clientContact, confirmationEvidence, confirmationLink, contactPii, responseComment } from "@veradact/db";
+import { appUser, clientContact, confirmationEvidence, confirmationLink, contactPii, responseComment } from "@veradact/db";
 import { writeAudit } from "../audit";
 import type { EngagementState, StoredEvent } from "../domain";
-import { DomainError } from "../errors";
+import { DomainError, ForbiddenError } from "../errors";
 import { appendEvents } from "../store";
 import { fixedClock, lockAndLoad, runInTenant, userOrSystemActor, type UserOrSystemContext } from "./context";
 
@@ -13,12 +13,18 @@ import { fixedClock, lockAndLoad, runInTenant, userOrSystemActor, type UserOrSys
  * Deletes the contact's `contact_pii` (with its HMAC key), `confirmation_evidence` and
  * `response_comment` rows, nulls `sent_to_email` and revokes their links, sets
  * `client_contact.erased_at`, appends `contact_erased` and audits `contact.erase`.
+ * Admin only (it irreversibly deletes confirmation evidence); `userId: null` is the system actor.
  */
 export async function eraseContact(
   ctx: UserOrSystemContext,
   input: { engagementId: string; contactId: string },
 ): Promise<{ events: StoredEvent[]; state: EngagementState }> {
   return runInTenant(ctx, async (tx) => {
+    if (ctx.userId !== null) {
+      // The role is read here, not taken from the caller, so no entry point can skip the check.
+      const [actor] = await tx.select({ role: appUser.role }).from(appUser).where(eq(appUser.id, ctx.userId));
+      if (actor?.role !== "admin") throw new ForbiddenError("Only an admin can erase a contact.");
+    }
     const { state } = await lockAndLoad(tx, input.engagementId);
     const [contact] = await tx
       .select({ id: clientContact.id, erasedAt: clientContact.erasedAt })

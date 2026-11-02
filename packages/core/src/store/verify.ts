@@ -13,13 +13,17 @@ export async function readEngagementHead(tx: Tx, engagementId: string): Promise<
 /**
  * `verifyChain(raw stored rows, engagement_head)`. Pass `expectedHead` to check against a head
  * printed in an earlier export or receipt instead of the stored one.
+ *
+ * The head is read BEFORE the events: at READ COMMITTED each statement sees the latest commits, and
+ * the head only grows, so the events read afterwards always reach at least that head. Reading the
+ * events first would report `truncated` whenever an append commits between the two reads.
  */
 export async function verifyEngagementChain(
   tx: Tx,
   engagementId: string,
   expectedHead?: ChainHead | null,
 ): Promise<ChainVerification> {
-  const rows = await readEvents(tx, engagementId);
   const head = expectedHead === undefined ? await readEngagementHead(tx, engagementId) : expectedHead;
+  const rows = await readEvents(tx, engagementId);
   return verifyChain(rows, head ? { seq: head.seq, hash: head.hash } : null);
 }

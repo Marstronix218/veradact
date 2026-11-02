@@ -1,10 +1,10 @@
 // Magic-link login (ARCHITECTURE §2.1, §14, D-016): a hashed, single-use, 15-minute login
 // token emailed as `${appUrl}/auth/verify?token=…`, exchanged for a 30-day session.
 //
-// No user enumeration: known and unknown addresses take the same path up to the response
-// (both rate-limit buckets are charged, a token is generated, the definer lookup runs) and
-// return the same result. Pass `defer` (Next's `after`) so delivery happens after the
-// response and SMTP latency cannot reveal whether the address belongs to a user.
+// No user enumeration: known and unknown addresses take the same path up to the response (both
+// rate-limit buckets are charged) and return the same result. The user lookup, the token insert
+// and the email all run in one task; pass `defer` (Next's `after`) so that task runs after the
+// response and neither database nor SMTP latency can reveal whether the address has an account.
 import { appUser, authConsumeLoginToken, authFindUserByEmail, loginToken, withTenant, type Db } from "@veradact/db";
 import { eq } from "drizzle-orm";
 import type { EmailProvider } from "@veradact/email";
@@ -68,40 +68,40 @@ export async function requestMagicLink(input: RequestMagicLinkInput): Promise<Re
   });
   if (!byEmail.allowed) return { status: "rate_limited", retryAfterSeconds: byEmail.retryAfterSeconds };
 
-  const token = randomToken();
-  const tokenHash = hashToken(token);
-  const user = await authFindUserByEmail(db, email);
-  if (!user) return { status: "accepted" };
-
-  await withTenant(db, user, (tx) =>
-    tx.insert(loginToken).values({
-      orgId: user.orgId,
-      userId: user.userId,
-      tokenHash,
-      expiresAt: new Date(now.getTime() + LOGIN_TOKEN_TTL_MS),
-      createdAt: now,
-    }),
-  );
-  log.info("auth.magic_link.issued", { userId: logId(user.userId), orgId: logId(user.orgId) });
-
-  const link = verifyUrl(appUrl, token);
-  const deliver = async (): Promise<void> => {
+  // Everything that differs between known and unknown addresses (the lookup, the token row, the
+  // email) happens in this task, after the response when `defer` is given.
+  const issue = async (): Promise<void> => {
+    let userId: string | null = null;
     try {
+      const user = await authFindUserByEmail(db, email);
+      if (!user) return;
+      userId = user.userId;
+      const token = randomToken();
+      await withTenant(db, user, (tx) =>
+        tx.insert(loginToken).values({
+          orgId: user.orgId,
+          userId: user.userId,
+          tokenHash: hashToken(token),
+          expiresAt: new Date(now.getTime() + LOGIN_TOKEN_TTL_MS),
+          createdAt: now,
+        }),
+      );
+      log.info("auth.magic_link.issued", { userId: logId(user.userId), orgId: logId(user.orgId) });
       await emailProvider.send({
         to: email,
         subject: "Your Veradact sign-in link",
         text:
           "Use this link to sign in to Veradact. It works once and expires in 15 minutes.\n\n" +
-          `${link}\n\n` +
+          `${verifyUrl(appUrl, token)}\n\n` +
           "If you did not ask to sign in, you can ignore this email.\n",
         tags: { kind: "magic_link" },
       });
     } catch (error) {
-      logError("auth.magic_link.delivery_failed", error, { userId: logId(user.userId) });
+      logError("auth.magic_link.delivery_failed", error, userId ? { userId: logId(userId) } : {});
     }
   };
-  if (defer) defer(deliver);
-  else await deliver();
+  if (defer) defer(issue);
+  else await issue();
   return { status: "accepted" };
 }
 

@@ -403,6 +403,35 @@ describe("clientSubmit", () => {
     expect(await submit(f, [respond(b, "confirm")])).toEqual({ status: "stale" });
     expect(await submit(f, [respond(b, "confirm")], { submissionId: "not-a-uuid" })).toEqual({ status: "stale" });
   });
+
+  it("never shows another contact's receipt for a reused submission id", async () => {
+    const f = await flow(2);
+    const [a] = f.items as [Flow["items"][number]];
+    await grant(f, 0);
+    await grant(f, 1);
+    const submissionId = randomUUID();
+    expect((await submit(f, [respond(a, "dispute", "Hourly, not every five minutes.")], { submissionId, contact: 0 })).status).toBe("recorded");
+    // Contact 1 posts a form carrying contact 0's submission id.
+    expect(await submit(f, [respond(a, "confirm")], { submissionId, contact: 1 })).toEqual({ status: "stale" });
+    const events = await withTenant(app.db, { orgId: f.e.orgId }, (tx) => readEvents(tx, f.e.engagementId));
+    expect(events.filter((ev) => ev.type === "item_confirmed")).toHaveLength(0);
+  });
+
+  it("answers rule violations from races with stale or field errors instead of throwing", async () => {
+    const f = await flow(2);
+    const [a] = f.items as [Flow["items"][number]];
+    await grant(f, 0);
+    await grant(f, 1);
+    expect(await submit(f, [respond(a, "dispute", "Bad\u0000comment")])).toEqual({ status: "invalid", errors: { [a.itemId]: "comment_invalid" } });
+    // The member revokes contact 0's link while the form is open.
+    await revokeConfirmation(f.e.ctx, { engagementId: f.e.engagementId, requestId: f.requestId, contactId: f.contacts[0]!.contactId });
+    expect(await submit(f, [respond(a, "confirm")], { contact: 0 })).toEqual({ status: "stale" });
+    // Contact 1 is erased while the form is open.
+    await eraseContact(f.e.ctx, { engagementId: f.e.engagementId, contactId: f.contacts[1]!.contactId });
+    expect(await submit(f, [respond(a, "confirm")], { contact: 1 })).toEqual({ status: "stale" });
+    const events = await withTenant(app.db, { orgId: f.e.orgId }, (tx) => readEvents(tx, f.e.engagementId));
+    expect(events.filter((ev) => ev.type === "item_confirmed" || ev.type === "item_disputed")).toHaveLength(0);
+  });
 });
 
 describe("notifications", () => {

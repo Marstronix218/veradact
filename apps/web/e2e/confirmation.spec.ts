@@ -172,3 +172,16 @@ test("the client page fits a phone screen without horizontal scrolling", async (
   expect(await overflow()).toBe(0);
   await context.close();
 });
+
+test("the client page refuses form posts from another site and oversized bodies", async ({ request }) => {
+  const org = await createOrgWithAdmin();
+  const fixture = await createEngagementWithItems({ orgId: org.orgId, userId: org.admin.id });
+  const url = await createRequestLink({ orgId: org.orgId, userId: org.admin.id }, fixture);
+  const crossSite = await request.post(url, { form: { action: "authorize", decision: "grant" }, headers: { "sec-fetch-site": "cross-site", origin: "https://evil.example" }, maxRedirects: 0 });
+  expect(crossSite.status()).toBe(403);
+  const oversized = await request.post(url, { form: { action: "submit", pad: "x".repeat(300 * 1024) }, maxRedirects: 0 });
+  expect(oversized.status()).toBe(413);
+  // Nothing was recorded: the page still asks for authorization.
+  const page = await request.get(url);
+  expect(await page.text()).toContain("Grant");
+});

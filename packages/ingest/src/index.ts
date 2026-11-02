@@ -13,5 +13,6 @@ export {
   type SourceFormat,
 } from "./detect";
 export { leadingSpeakerLabel } from "./speaker";
+export { assertZipWithinLimits, MAX_DOCX_ENTRIES, MAX_DOCX_UNCOMPRESSED_BYTES, type ZipLimits } from "./zip-guard";
 export { IngestError, type IngestErrorCode } from "./errors";
 export type { IngestionAdapter, RawSource } from "./adapter";

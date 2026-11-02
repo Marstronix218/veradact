@@ -186,3 +186,47 @@ export async function archiveEngagement(ctx: CommandContext, input: { engagement
 export async function reactivateEngagement(ctx: CommandContext, input: { engagementId: string }): Promise<void> {
   await runInTenant(ctx, (tx) => setStatus(tx, ctx, input.engagementId, "active"));
 }
+
+const DOMAIN = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
+export const CLIENT_EMAIL_DOMAINS_MAX = 20;
+
+/**
+ * Lower-cased, de-duplicated, sorted domains from a comma/space-separated string or a list
+ * (a leading "@" is dropped). Throws `invalid_email_domain` for anything that is not a domain.
+ */
+export function normalizeEmailDomains(input: string | readonly string[]): string[] {
+  const parts = (typeof input === "string" ? input.split(/[\s,;]+/) : input).map((d) => d.trim().toLowerCase().replace(/^@/, "")).filter((d) => d !== "");
+  const unique = [...new Set(parts)].sort();
+  if (unique.length > CLIENT_EMAIL_DOMAINS_MAX || unique.some((d) => !DOMAIN.test(d))) throw new DomainError("invalid_email_domain");
+  return unique;
+}
+
+/** True when the address is at one of the domains or a subdomain of one (`eu.acme.example`). */
+export function emailInDomains(email: string, domains: readonly string[]): boolean {
+  const domain = email.slice(email.lastIndexOf("@") + 1).toLowerCase();
+  return domains.some((d) => domain === d || domain.endsWith(`.${d}`));
+}
+
+/**
+ * Sets the engagement's client email domains (row only, like the AI switch; D-057) and audits
+ * `engagement.update` with the counts before and after. An unchanged list writes nothing.
+ */
+export async function setClientEmailDomains(ctx: CommandContext, input: { engagementId: string; domains: string | readonly string[] }): Promise<{ domains: string[] }> {
+  const domains = normalizeEmailDomains(input.domains);
+  return runInTenant(ctx, async (tx) => {
+    const [row] = await tx.select({ domains: engagement.clientEmailDomains }).from(engagement).where(eq(engagement.id, input.engagementId)).for("update");
+    if (!row) throw new DomainError("engagement_not_found");
+    if (row.domains.join(",") === domains.join(",")) return { domains };
+    await tx.update(engagement).set({ clientEmailDomains: domains }).where(eq(engagement.id, input.engagementId));
+    await writeAudit(tx, {
+      orgId: ctx.orgId,
+      actorUserId: ctx.userId,
+      action: "engagement.update",
+      targetType: "engagement",
+      targetId: input.engagementId,
+      metadata: { client_email_domains_count_before: row.domains.length, client_email_domains_count_after: domains.length },
+      at: ctx.clock(),
+    });
+    return { domains };
+  });
+}

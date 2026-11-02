@@ -7,7 +7,7 @@ import { writeAudit } from "../audit";
 import { requireAdmin, type AuthContext } from "../auth/context";
 import { normalizeEmail } from "../auth/email-address";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../errors";
-import { logError, logId } from "../log";
+import { log, logError, logId } from "../log";
 
 export interface OrgUser {
   id: string;
@@ -62,6 +62,9 @@ export interface InviteUserInput {
   role: UserRole;
 }
 
+/** Shown for any address that cannot be added (already a user here or in another org). */
+export const INVITE_CONFLICT_MESSAGE = "That email address could not be added. Check it, or use a different address.";
+
 /**
  * Admin only. Creates the user and audits `user.invite`, then sends a welcome email with
  * the login URL. The user exists even if delivery fails (`emailSent: false`); they can
@@ -101,7 +104,9 @@ export async function inviteUser(input: InviteUserInput): Promise<{ user: OrgUse
     });
   } catch (error) {
     if (getPgError(error)?.code === "23505") {
-      throw new ConflictError("That email address already belongs to a Veradact user.");
+      // Emails are unique across all orgs; do not tell an admin that the address exists elsewhere.
+      log.info("user.invite.conflict", { orgId: logId(ctx.orgId), code: "23505" as const });
+      throw new ConflictError(INVITE_CONFLICT_MESSAGE);
     }
     throw error;
   }

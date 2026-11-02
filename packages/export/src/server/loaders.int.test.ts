@@ -3,12 +3,12 @@
 import { randomUUID } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
 import { afterAll, describe, expect, it } from "vitest";
-import { eraseContact } from "@veradact/core";
+import { createItem, eraseContact, reviseItem } from "@veradact/core";
 import { confirmationEvidence, event, usageEvent, withTenant, type Tx } from "@veradact/db";
 import { adminTestDb, createTestOrg, testDb } from "@veradact/db/testing";
 import { AI_OFF_NOTICE, NOT_CONFIRMED_HEADING } from "../spec";
 import { loadExportContext, loadRecord, loadSpec, parseAsOf, recordUsage, resolveEngagementRef, resolveItemRef } from "./index";
-import { createExportScenario, DISPUTE_COMMENT, SCENARIO_TIME_ZONE, type ExportScenario } from "./testing";
+import { createExportScenario, DISPUTE_COMMENT, onFirstEventRead, SCENARIO_TIME_ZONE, type ExportScenario } from "./testing";
 
 const app = testDb();
 const admin = adminTestDb();
@@ -100,6 +100,29 @@ describe("loadSpec", () => {
     expect(markdown).toContain(`**Current log head:** seq ${ctx.head.seq}`);
   });
 
+  it("without as_of folds the whole log, even events recorded ahead of the reader's clock", async () => {
+    const s = await createExportScenario(app, admin.db);
+    const { r1, d1 } = s.items;
+    // The writer's clock is ahead: R1 (confirmed Mar 3) is revised at Mar 20 while the reader's clock says Mar 15.
+    s.clock.jump(new Date("2026-03-20T15:00:00.000Z"));
+    const revised = "The dispatch dashboard refreshes every two minutes.";
+    await reviseItem(s.ctx, { engagementId: s.engagementId, itemId: r1.itemId, statement: revised, reasonCode: "scope_change" });
+    const readerClock = () => new Date("2026-03-15T12:00:00.000Z");
+
+    const { markdown, view, ctx } = await inTenant(s.orgId, (tx) => loadSpec(tx, { engagementId: s.engagementId, clock: readerClock }));
+    expect(view.head.seq).toBe(ctx.head.seq);
+    expect(view.items.map((i) => i.shortId)).toEqual([d1.shortId]);
+    expect(view.notConfirmed.find((i) => i.itemId === r1.itemId)).toMatchObject({ revisionPending: true, statement: revised });
+    const { confirmed, notConfirmed } = splitSpec(markdown);
+    expect(confirmed).not.toContain(`### ${r1.shortId}`);
+    expect(notConfirmed).toContain(`- ${r1.shortId} · ${revised} (revision pending; previously agreed)`);
+
+    // A reader clock before every event still sees the whole log.
+    const early = await inTenant(s.orgId, (tx) => loadSpec(tx, { engagementId: s.engagementId, clock: () => new Date("2026-01-01T00:00:00.000Z") }));
+    expect(early.view.head.seq).toBe(ctx.head.seq);
+    expect(early.view.items.map((i) => i.shortId)).toEqual([d1.shortId]);
+  });
+
   it.each([
     ["engagement", { engagementAiEnabled: false }],
     ["org", { orgAiEnabled: false }],
@@ -150,6 +173,37 @@ describe("loadRecord", () => {
     const dispute = record.responses.find((r) => r.type === "item_disputed")!;
     expect(dispute.comment).toBe(DISPUTE_COMMENT);
     expect(record.authorizations.map((a) => a.decision)).toEqual(["granted", "granted"]);
+    expect(record.authorizations.map((a) => a.evidence)).toEqual(["verified", "verified"]);
+    // Five items at version 1: every content hash recomputes.
+    expect(record.contentHashes).toEqual({ checked: 5, mismatches: [] });
+  });
+
+  it("checks authorization evidence too: missing without a snapshot, erased after eraseContact", async () => {
+    const s = await createExportScenario(app, admin.db);
+    const [adaGrant] = await admin.db
+      .select({ id: event.id })
+      .from(event)
+      .where(
+        and(eq(event.engagementId, s.engagementId), eq(event.type, "authorization_granted"), sql`${event.payload}->>'contact_id' = ${s.contacts.ada}`),
+      );
+    await admin.db.delete(confirmationEvidence).where(eq(confirmationEvidence.eventId, adaGrant!.id));
+    await eraseContact(s.ctx, { engagementId: s.engagementId, contactId: s.contacts.ben });
+    const { record } = await inTenant(s.orgId, (tx) => loadRecord(tx, { engagementId: s.engagementId, clock }));
+    const evidence = Object.fromEntries(record.authorizations.map((a) => [a.contactId, a.evidence]));
+    expect(evidence).toEqual({ [s.contacts.ada]: "missing", [s.contacts.ben]: "erased" });
+  });
+
+  it.each(["before", "after"] as const)("reads engagement_head before the events: an append committing just %s the events read is not truncated", async (when) => {
+    const s = await createExportScenario(app, admin.db);
+    const append = async () => {
+      // A second pool connection commits while the export transaction is open (READ COMMITTED).
+      await createItem(s.ctx, { engagementId: s.engagementId, kind: "problem", statement: `Appended ${when} the events read.`, manual: true });
+    };
+    const { record, ctx } = await inTenant(s.orgId, (tx) => loadRecord(onFirstEventRead(tx, when, append), { engagementId: s.engagementId, clock }));
+    expect(record.verification).toMatchObject({ ok: true });
+    expect(record.expectedHead).toEqual(ctx.head);
+    // Appended before the read: the record lists one event past the head it was checked against.
+    expect(record.events.at(-1)!.seq).toBe(when === "before" ? ctx.head.seq + 1 : ctx.head.seq);
   });
 
   it("reports mismatch for a tampered snapshot, missing for a deleted one, erased after eraseContact", async () => {

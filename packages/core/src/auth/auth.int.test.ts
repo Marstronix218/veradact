@@ -88,8 +88,11 @@ describe("requestMagicLink", () => {
     const known = await run(user.email);
     const unknown = await run(nobody);
     expect(unknown).toEqual(known);
-    // With `defer`, nothing is delivered before the response in either case.
+    // With `defer`, nothing is delivered — and for the known address no token row is written —
+    // before the response, so both paths return after the same work.
     expect(mail.messages).toHaveLength(0);
+    expect(deferred).toHaveLength(2);
+    expect(await admin.db.select().from(loginToken).where(eq(loginToken.userId, user.id))).toEqual([]);
 
     // Both addresses were charged against the per-email limit (same path up to the lookup).
     const { windowSeconds } = MAGIC_LINK_RATE_LIMITS.perEmail;

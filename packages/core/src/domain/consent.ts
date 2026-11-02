@@ -6,9 +6,10 @@
  * - `XX` (two letters) is kept as is, upper-cased. A two-letter code that is a US state or DC code
  *   is read as that state (so `DE` means Delaware, not Germany: the conservative reading, since only
  *   US states are on the all-party list and attesting consent always lets the uploader proceed);
- * - `US-XX` / `US_XX` / `US XX` becomes `XX`;
+ * - `US-XX` / `US_XX` / `US XX` becomes `XX` when `XX` is a US state or DC code;
  * - a full US state name (`California`, `new york`, `District of Columbia`) becomes its code;
- * - anything else is unrecognized and is treated as an unknown jurisdiction.
+ * - the whole United States (`US`, `USA`, `United States`) says nothing about which state's law
+ *   applies, so it is unrecognized like anything else (an unknown jurisdiction, D-013).
  */
 import type { Attestation, ConsentAllowedRule, SourceFormat, SourceType } from "./events";
 
@@ -91,9 +92,10 @@ const STATE_BY_NAME: ReadonlyMap<string, string> = new Map(
 /** Normalized code, or null when the value is not recognized (see module comment). */
 export function normalizeJurisdiction(raw: string): string | null {
   const value = raw.trim().replace(/\s+/g, " ").toUpperCase();
+  if (value === "US") return null;
   if (/^[A-Z]{2}$/.test(value)) return value;
   const us = /^US[-_ ]([A-Z]{2})$/.exec(value);
-  if (us) return us[1]!;
+  if (us) return US_STATE_NAMES[us[1]!] ? us[1]! : null;
   return STATE_BY_NAME.get(value) ?? null;
 }
 

@@ -13,17 +13,24 @@ import {
   withTenant,
   type Db,
 } from "@veradact/db";
+import { isWeakSecret } from "../security/secrets";
 
 const TOKEN_PATTERN = /^v1\.([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.(\d{1,12})\.([A-Za-z0-9_-]{43})$/;
 const MIN_SECRET_LENGTH = 32;
 /** Compared against when the link id is unknown, so that path costs one HMAC like the others. */
 const DUMMY_CONTACT_ID = "00000000-0000-4000-8000-000000000000";
 
-/** `LINK_SIGNING_SECRET` (≥ 32 characters). Rotating it invalidates every outstanding link. */
+/**
+ * `LINK_SIGNING_SECRET` (≥ 32 characters; in production never a `.env.example` placeholder).
+ * Rotating it invalidates every outstanding link.
+ */
 export function linkSigningSecret(env: Record<string, string | undefined> = process.env): string {
   const secret = env.LINK_SIGNING_SECRET?.trim();
   if (!secret || secret.length < MIN_SECRET_LENGTH) {
     throw new Error(`LINK_SIGNING_SECRET must be set to at least ${MIN_SECRET_LENGTH} characters (see .env.example)`);
+  }
+  if (env.NODE_ENV === "production" && isWeakSecret(secret)) {
+    throw new Error("LINK_SIGNING_SECRET is a development placeholder; set a random value in production");
   }
   return secret;
 }

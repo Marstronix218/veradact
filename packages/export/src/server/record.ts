@@ -18,15 +18,20 @@ export interface LoadedRecord {
 }
 
 /**
- * Full log (raw stored values), `engagement_head` as the expected head, evidence statuses
- * (`verified` / `mismatch` / `erased` / `missing`) and dispute comments (null once erased).
+ * Full log (raw stored values), `engagement_head` (read first) as the expected head, evidence
+ * statuses (`verified` / `mismatch` / `erased` / `missing`) of responses and authorizations, and
+ * dispute comments (null once erased).
  */
 export async function loadRecord(tx: Tx, input: LoadRecordInput): Promise<LoadedRecord> {
   const { engagementId } = input;
-  const ctx = await loadExportContext(tx, { engagementId, clock: input.clock, asOf: null });
-  const [rows, head, evidenceRows, commentRows, contacts] = await Promise.all([
+  const loaded = await loadExportContext(tx, { engagementId, clock: input.clock, asOf: null });
+  // The head is read BEFORE the events (as in `verifyEngagementChain`): the head only grows, so the
+  // events read afterwards reach at least that head even if a submission commits in between. The
+  // other way round, such an append would make an untampered log look `truncated`.
+  const head = await readEngagementHead(tx, engagementId);
+  const ctx: ExportContext = head ? { ...loaded, head: { seq: head.seq, hash: head.hash } } : loaded;
+  const [rows, evidenceRows, commentRows, contacts] = await Promise.all([
     readEventRows(tx, engagementId),
-    readEngagementHead(tx, engagementId),
     tx
       .select({ evidence: confirmationEvidence })
       .from(confirmationEvidence)

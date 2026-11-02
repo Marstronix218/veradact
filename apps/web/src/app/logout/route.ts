@@ -5,7 +5,6 @@ import { logout } from "@veradact/core";
 import { clock } from "@/lib/clock";
 import { getDb } from "@/lib/db";
 import { appUrl } from "@/lib/env";
-import { isHttpsRequest } from "@/lib/request";
 import { SESSION_COOKIE } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +16,7 @@ export async function POST(request: NextRequest) {
   response.cookies.set(SESSION_COOKIE, "", {
     httpOnly: true,
     sameSite: "lax",
-    secure: isHttpsRequest(request.headers, base),
+    secure: new URL(base).protocol === "https:",
     path: "/",
     maxAge: 0,
   });

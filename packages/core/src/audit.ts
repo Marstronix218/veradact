@@ -17,6 +17,7 @@ export const AUDIT_ACTIONS = [
   "export.record_md",
   "export.record_pdf",
   "contact.erase",
+  "contact.outside_domains",
   "user.invite",
   "user.deactivate",
   "api_token.create",

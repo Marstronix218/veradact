@@ -8,12 +8,14 @@ import { verifyMagicLink } from "@veradact/core";
 import { clock } from "@/lib/clock";
 import { getDb } from "@/lib/db";
 import { appUrl } from "@/lib/env";
-import { clientIpFrom, isHttpsRequest } from "@/lib/request";
+import { clientIpFrom, isCrossSite, readFormData } from "@/lib/request";
 import { SESSION_COOKIE } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 const MAX_TOKEN_LENGTH = 256;
+/** The form carries one token; anything bigger is not ours. */
+const MAX_FORM_BYTES = 4 * 1024;
 
 const STYLE =
   "body{margin:0;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;background:#fafafa;color:#18181b}" +
@@ -39,18 +41,6 @@ function failure(base: string): NextResponse {
   response.headers.set("Cache-Control", "no-store");
   response.headers.set("Referrer-Policy", "no-referrer");
   return response;
-}
-
-/**
- * Login CSRF: only accept the form from our own pages. The interstitial's no-referrer policy makes
- * browsers send `Origin: null` on its POST, so `Sec-Fetch-Site` decides when present; otherwise a
- * real Origin must be ours.
- */
-function isCrossSite(headers: Headers, appOrigin: string): boolean {
-  const site = headers.get("sec-fetch-site");
-  if (site !== null) return site !== "same-origin";
-  const origin = headers.get("origin");
-  return origin !== null && origin !== "null" && origin !== appOrigin;
 }
 
 /** Renders the interstitial. Nothing is consumed or written. */
@@ -84,9 +74,10 @@ export async function GET(request: NextRequest) {
 /** Consumes the token posted by the interstitial and opens a session. */
 export async function POST(request: NextRequest) {
   const base = appUrl();
+  // Login CSRF: only accept the form from our own interstitial.
   if (isCrossSite(request.headers, new URL(base).origin)) return failure(base);
 
-  const form = await request.formData().catch(() => null);
+  const form = await readFormData(request, MAX_FORM_BYTES);
   const token = form?.get("token");
   const result = await verifyMagicLink({
     db: getDb(),
@@ -100,7 +91,8 @@ export async function POST(request: NextRequest) {
   response.cookies.set(SESSION_COOKIE, result.sessionToken, {
     httpOnly: true,
     sameSite: "lax",
-    secure: isHttpsRequest(request.headers, base),
+    // From the configured public URL, not from a client-controllable X-Forwarded-Proto.
+    secure: new URL(base).protocol === "https:",
     path: "/",
     expires: result.expiresAt,
   });

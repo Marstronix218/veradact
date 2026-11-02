@@ -10,6 +10,7 @@ import { archiveEngagement } from "../commands/engagements";
 import { addDependency, createItem, reviseItem, withdrawItem } from "../commands/items";
 import { clientContext, createLedgerEngagement, NOTES_TEXT, tamper } from "../test-support/ledger";
 import { getEngagementSummary, getItemDetail, getSourceDetail, listConfirmationRequests, listContacts, listEngagements, listItems, listSources } from "./index";
+import { AUTHORIZATION_TEXT_VERSION } from "../confirmation/authorization-text";
 
 const app = testDb();
 const admin = adminTestDb();
@@ -63,7 +64,7 @@ async function ledger() {
   const { contactId } = await addContact(e.ctx, { engagementId: e.engagementId, name: "Ada Client", email: "ada@client.example", title: "Ops" });
   const request = await requestConfirmation(e.ctx, { engagementId: e.engagementId, items: [{ itemId: constraint.itemId }, { itemId: requirement.itemId }], contactIds: [contactId] });
   const client = clientContext(e.ctx);
-  await recordAuthorization(client, { engagementId: e.engagementId, requestId: request.requestId, contactId, decision: "granted", text: "I authorize.", textVersion: "v1", evidence: { ip: null, userAgent: null } });
+  await recordAuthorization(client, { engagementId: e.engagementId, requestId: request.requestId, contactId, decision: "granted", text: "I authorize.", textVersion: AUTHORIZATION_TEXT_VERSION, evidence: { ip: null, userAgent: null } });
   await recordClientResponses(client, {
     channel: "email_link",
     engagementId: e.engagementId,
@@ -150,7 +151,7 @@ describe("sources, contacts, requests, summary", () => {
       expect(content!.text.slice(detail.citations[0]!.start, detail.citations[0]!.end)).toBe(QUOTE);
 
       const contacts = await listContacts(tx, e.engagementId);
-      expect(contacts).toMatchObject([{ id: contactId, name: "Ada Client", email: "ada@client.example", title: "Ops", erased: false, authorization: { decision: "granted", textVersion: "v1" } }]);
+      expect(contacts).toMatchObject([{ id: contactId, name: "Ada Client", email: "ada@client.example", title: "Ops", erased: false, authorization: { decision: "granted", textVersion: AUTHORIZATION_TEXT_VERSION } }]);
 
       const requests = await listConfirmationRequests(tx, e.engagementId, { now: new Date("2026-03-03T00:00:00.000Z") });
       expect(requests).toHaveLength(1);

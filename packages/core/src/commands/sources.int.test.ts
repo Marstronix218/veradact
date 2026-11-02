@@ -136,7 +136,7 @@ describe("ingestSource", () => {
 });
 
 describe("redaction", () => {
-  it("deletes the text and pending candidates; items keep their spans and content hash and render as redacted; revising with carried spans works", async () => {
+  it("deletes the text and every candidate from the source; items keep their spans and content hash and render as redacted; revising with carried spans works", async () => {
     const e = await createLedgerEngagement(app, admin.db);
     const quote = "Invoices are exported nightly to the carrier portal.";
     const created = await createItem(e.ctx, { engagementId: e.engagementId, kind: "requirement", statement: "Nightly invoice export", spans: [{ sourceId: e.sourceId, quote }] });
@@ -170,8 +170,8 @@ describe("redaction", () => {
 
     await withTenant(app.db, { orgId: e.orgId }, async (tx) => {
       expect(await tx.select().from(sourceContent).where(eq(sourceContent.sourceId, e.sourceId))).toEqual([]);
-      const remaining = await tx.select({ status: candidate.status }).from(candidate).where(eq(candidate.sourceId, e.sourceId));
-      expect(remaining.map((c) => c.status)).toEqual(["accepted"]);
+      // Accepted rows copy the source text too (quote, speaker), so they go as well.
+      expect(await tx.select({ status: candidate.status }).from(candidate).where(eq(candidate.sourceId, e.sourceId))).toEqual([]);
       const [src] = await tx.select().from(source).where(eq(source.id, e.sourceId));
       expect(src).toMatchObject({ redactionReason: "user_request" });
       expect(src!.redactedAt).toEqual(events[0]!.recordedAt);

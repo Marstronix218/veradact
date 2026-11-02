@@ -38,3 +38,14 @@ export function parseAsOf(input: string, timeZone: string): Date {
   if (Number.isNaN(t)) invalid();
   return new Date(Math.trunc(t));
 }
+
+/**
+ * The replay cut for "now" (no `as_of` given): the later of the reader's clock and the last recorded
+ * event. `recorded_at = max(clock(), head.recorded_at)`, so a writer's events can carry times ahead
+ * of this reader's clock; cutting at the reader's `now` would hide them (a just-revised confirmed
+ * item would still look confirmed and miss the do-not-build list). Pass the events in seq order.
+ */
+export function currentCut(now: Date, events: readonly { recordedAt: Date }[]): Date {
+  const last = events.length > 0 ? events[events.length - 1]!.recordedAt : null;
+  return last !== null && last.getTime() > now.getTime() ? last : now;
+}

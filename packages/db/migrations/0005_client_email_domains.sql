@@ -1,0 +1,1 @@
+ALTER TABLE "engagement" ADD COLUMN "client_email_domains" text[] DEFAULT '{}'::text[] NOT NULL;

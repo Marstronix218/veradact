@@ -1,0 +1,14 @@
+// GET /api/engagements/[id]/export/record.md — the engagement record (agreed record, responses,
+// full event list, hash-chain verification) as markdown (ARCHITECTURE §10). Session required;
+// usage + audit `export.record_md`.
+import { clock } from "@/lib/clock";
+import { getDb } from "@/lib/db";
+import { exportDownload } from "@/lib/export-download";
+import { getAuth } from "@/lib/session";
+
+export const dynamic = "force-dynamic";
+
+export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }): Promise<Response> {
+  const { id } = await params;
+  return exportDownload({ db: getDb(), auth: await getAuth(), engagementRef: id, kind: "record_md", clock });
+}

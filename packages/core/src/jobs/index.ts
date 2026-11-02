@@ -3,8 +3,10 @@
 import type { Db } from "@veradact/db";
 import type { EmailProvider } from "@veradact/email";
 import { runReminders, type RunRemindersResult } from "./reminders";
+import { runRetention, type RunRetentionResult } from "./retention";
 
 export { runReminders, type RunRemindersInput, type RunRemindersResult } from "./reminders";
+export { runRetention, RATE_LIMIT_BUCKET_MAX_AGE_MS, type RunRetentionInput, type RunRetentionResult } from "./retention";
 
 export interface ScheduledJobsInput {
   db: Db;
@@ -15,13 +17,12 @@ export interface ScheduledJobsInput {
 
 export interface ScheduledJobsResult {
   reminders: RunRemindersResult;
+  retention: RunRetentionResult;
 }
 
-/**
- * Runs every scheduled job once. Retention (redacting sources older than `org.retention_days`,
- * ARCHITECTURE §6) is added here in Phase 5, next to reminders.
- */
+/** Runs every scheduled job once: reminders (§8.6), then retention (§6). */
 export async function runScheduledJobs(input: ScheduledJobsInput): Promise<ScheduledJobsResult> {
   const reminders = await runReminders(input);
-  return { reminders };
+  const retention = await runRetention({ db: input.db, now: input.now });
+  return { reminders, retention };
 }

@@ -192,7 +192,9 @@ function itemCard(item: ClientViewItem, view: ClientView, values: FormValues | u
       ? `Please say what is wrong, so ${view.vendorName} can correct it.`
       : error === "comment_too_long"
         ? "Please shorten your comment to 5000 characters or fewer."
-        : null;
+        : error === "comment_invalid"
+          ? "Please remove unusual characters from your comment."
+          : null;
   return html`<section class="card${error ? " has-error" : ""}" id="item-${item.shortId}">
 <p class="meta"><span class="kind">${KIND_LABEL[item.kind]}</span><span class="code">${item.shortId}</span><span class="muted">version ${item.version}</span></p>
 <p class="statement">${item.statement}</p>
