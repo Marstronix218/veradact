@@ -21,7 +21,7 @@ Why: the log is the dispute artifact, and the spec says nothing enters the ledge
 `apps/mcp` is a plain Node `http` server using the MCP SDK's Streamable HTTP transport (stateless). The SDK transport expects Node request/response objects, and a separate process lets us rate limit and scale agent traffic independently of the vendor UI. It shares `core`, `db` and `export` with the web app.
 
 ### D-006 · Commands load state by folding the log
-Each command folds the engagement's full event log to get current state, then appends. For pilot-sized engagements (hundreds to low thousands of events) this costs milliseconds and removes an entire class of drift bugs: the live path and the rebuild path run the same reducer from the same input. The DB projection tables are written from the state diff and exist for querying and RLS. Snapshots ("log compaction") can be added later behind `loadState` without changing callers.
+Each command folds the engagement's full event log to get current state, then appends. For pilot-sized engagements (hundreds to low thousands of events) this costs milliseconds and removes an entire class of drift bugs: the live path and the rebuild path run the same reducer from the same input. After each append the engagement's projection rows are deleted and rewritten from the folded state, so "rebuild equals live" holds by construction; the property test guards that property when this is later optimized. Snapshots ("log compaction") and a diffing writer can be added behind `loadState` / `writeProjections` without changing callers.
 
 ### D-007 · Hashes computed in TypeScript, linkage enforced in Postgres
 Canonicalizing JSON in PL/pgSQL is error-prone, so hashes are computed in the app and re-verified by `verifyChain`. A `BEFORE INSERT` trigger still guarantees `seq` continuity and `prev_hash` linkage, and update/delete/truncate are blocked by both privileges and triggers. Timestamps are stored at millisecond precision (`timestamptz(3)`) so the hashed ISO strings round-trip exactly.
@@ -39,7 +39,7 @@ The spec says agreed = "only items confirmed as of T, at the version that was co
 Disputing, revising, superseding or withdrawing an upstream item flags its direct dependents. No transitive propagation ("keep this simple"); the flag is visible on the item and in the ledger filters.
 
 ### D-012 · Personal data off-log with keyed commitments
-Client contact PII, confirmation IP/user agent and dispute comments live in erasable side tables; source text lives in `source_content`. The log holds contact ids and HMAC commitments keyed per contact (or per source) — erasure deletes the rows and keys, the commitments become unlinkable, and the hash chain is untouched. This combines the spec's two suggested options (separate tables + destroyable per-subject keys).
+Client contact PII, the confirmer's identity/IP/user agent snapshot and dispute comments live in erasable side tables; source text, titles, filenames and participants live in `source_content`; free-text explanations live in `event_note` and the log carries enum reason codes. The log holds contact ids and HMAC commitments keyed per contact — erasure deletes the rows and keys, the commitments become unlinkable, and the hash chain is untouched. This combines the spec's two suggested options (separate tables + destroyable per-subject keys). Quotes need no commitment of their own: a span stores `source_id, source_sha256, start, end`, which binds the exact quoted text through the source's content hash.
 Cost: item **statements** stay in the log because they are the vendor-authored agreement itself. Members are warned in the UI not to put personal data in statements. Dispute comments are erased along with the contact, which loses the client's stated reason for that dispute (the dispute event itself remains).
 
 ### D-013 · Unknown jurisdictions block unattested machine transcripts **[spec deviation: stricter]**
@@ -83,3 +83,29 @@ No job queue in the MVP: extraction runs in the ingest request after the source 
 
 ### D-026 · Non-trivial dependencies we accepted
 `mammoth` (.docx text), `pdfkit` (record PDF), `fast-check` (property tests), `date-fns` + `@date-fns/tz` (zone-aware business days), `nodemailer` (SMTP), `zod` (payload and tool schemas; required by the MCP SDK anyway). Everything else small (canonical JSON, word diff, token signing, rate limiting) is written in-house.
+
+### D-027 · AI-off engagements export without quotes
+The spec says that with AI off "no source text is sent to any model provider". The spec export and the MCP server exist to feed coding agents, which are model providers. For AI-off engagements both omit quote text and cite the source by type, date and character offsets instead; statements (vendor-authored agreement text) are still included. The vendor app UI shows full quotes as usual.
+
+### D-028 · Architecture review changes (Phase 0 critique)
+An independent review before Phase 1 led to these changes, all reflected in `ARCHITECTURE.md`:
+- Source titles/filenames and free-text reasons moved out of the log (`source_content`, `event_note`); the log carries enum reason codes.
+- `engagement_head` maintained by the insert trigger; `verifyChain` reports `truncated` when the log is shorter than or diverges from a known head (tail deletion is otherwise undetectable).
+- Every command takes an injectable clock, so seed and tests build weeks of history through the real append path.
+- Hash round-trip rules: app-supplied ms timestamps only, `int8` parsed as number, integers only in payloads, `verifyChain` hashes raw stored values.
+- Confirmation evidence snapshots the confirmer's name and email; links store the address they were sent to; exports verify evidence commitments.
+- All tenant tables carry `org_id` (incl. request item/contact tables), composite `(id, org_id)` foreign keys, and a catalog sweep test for RLS coverage. Operational tables never reference projection tables.
+- Spans on revisions are carried over unchanged or edited; zero spans means manual.
+- Link open metric counts first interaction (POST), since mail scanners prefetch links; raw opens are shown separately.
+- Client submissions are one transaction with an idempotent `submission_id`.
+- Extraction never holds a transaction open across the model call; AI flags are re-checked before candidates are written.
+- `.vtt`/`.srt` uploads are always machine transcripts for the consent gate.
+- Client page is rendered by route handlers as plain escaped HTML (no React hydration), so a strict CSP needs no nonces.
+- `decisionContext` cuts off by event seq, not timestamp; `as_of` dates mean end of day in the engagement time zone.
+- Per-source HMAC quote commitments were dropped as redundant with `source_sha256` + offsets.
+
+### D-029 · Contacts may change their response while the link is valid
+The latest response per contact counts (D-009). Every response remains in the log, so a changed mind is visible in the record.
+
+### D-030 · Orgs are created by an operator script
+`pnpm org:create --name ... --slug ... --admin-email ...` runs with the admin database URL. Self-serve signup is not needed for 10–12 design partners.

@@ -7,6 +7,6 @@ playwright-report
 test-results
 *.tsbuildinfo
 next-env.d.ts
-.omc/state
-.omc/sessions
 .DS_Store
+.omc/*
+!.omc/skills/
