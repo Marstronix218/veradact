@@ -1,0 +1,32 @@
+{
+  "name": "@veradact/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start -p 3000",
+    "typecheck": "next typegen && tsc --noEmit",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@veradact/ai": "workspace:*",
+    "@veradact/core": "workspace:*",
+    "@veradact/db": "workspace:*",
+    "@veradact/email": "workspace:*",
+    "@veradact/export": "workspace:*",
+    "@veradact/ingest": "workspace:*",
+    "next": "^15.5.28",
+    "postcss": "^8.5.32",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "tailwindcss": "^4.3.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0"
+  }
+}

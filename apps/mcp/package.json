@@ -1,0 +1,21 @@
+{
+  "name": "@veradact/mcp",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.15"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "@veradact/core": "workspace:*",
+    "@veradact/db": "workspace:*",
+    "@veradact/export": "workspace:*",
+    "zod": "^4.6.7"
+  }
+}

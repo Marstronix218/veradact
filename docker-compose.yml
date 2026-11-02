@@ -1,0 +1,30 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: veradact-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: veradact_admin
+      POSTGRES_PASSWORD: veradact_admin
+      POSTGRES_DB: veradact
+    ports:
+      - "54330:5432"
+    volumes:
+      - veradact_pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U veradact_admin -d veradact"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  mailpit:
+    image: axllent/mailpit:v1.33.0
+    container_name: veradact-mailpit
+    restart: unless-stopped
+    ports:
+      - "54331:1025"
+      - "54332:8025"
+
+volumes:
+  veradact_pgdata:
