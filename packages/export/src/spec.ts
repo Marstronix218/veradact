@@ -6,7 +6,7 @@ import type { AgreedView, NotConfirmedItem } from "@veradact/core";
 import type { ExportContext } from "./context";
 import { formatDate, formatDateTime, isoUtc, KIND_SECTION } from "./format";
 import { mdBlockquote, mdCode, mdInline } from "./markdown";
-import { exampleShortId, groupByKind, notConfirmedStatus, presentItem, type ItemPresentation } from "./present";
+import { exampleShortId, groupByKind, notConfirmedStatus, presentItem, type ItemPresentation, type PresentOptions } from "./present";
 
 export const NOT_CONFIRMED_HEADING = "Not confirmed — do not build";
 
@@ -43,12 +43,12 @@ export function itemMarkdown(p: ItemPresentation, level: number): string[] {
 }
 
 /** Confirmed items grouped by kind; empty kinds say "None confirmed." */
-export function agreedItemsMarkdown(view: AgreedView, ctx: ExportContext, level: number): string[] {
+export function agreedItemsMarkdown(view: AgreedView, ctx: ExportContext, level: number, opts: PresentOptions = {}): string[] {
   const out: string[] = [];
   for (const [kind, items] of groupByKind(view.items)) {
     out.push(`${"#".repeat(level)} ${KIND_SECTION[kind]}`, "");
     if (items.length === 0) out.push("None confirmed.", "");
-    for (const item of items) out.push(...itemMarkdown(presentItem(item, ctx, { anonymousContacts: !ctx.engagement.aiEnabled }), level + 1));
+    for (const item of items) out.push(...itemMarkdown(presentItem(item, ctx, opts), level + 1));
   }
   return out;
 }
@@ -99,7 +99,8 @@ export function renderSpecMarkdown(view: AgreedView, ctx: ExportContext): string
     "6. If something you need is not here, ask the team instead of inferring it.",
     "",
   );
-  out.push(...agreedItemsMarkdown(view, ctx, 2));
+  // Spec exports feed coding agents: AI-off engagements carry no confirmer names (D-057).
+  out.push(...agreedItemsMarkdown(view, ctx, 2, { anonymousContacts: !ctx.engagement.aiEnabled }));
   out.push(
     `## ${NOT_CONFIRMED_HEADING}`,
     "",

@@ -241,7 +241,15 @@ export function verificationSummary(record: RecordExport): VerificationSummary {
     "The log head (seq and hash) is also printed in the confirmation receipts emailed to the client after each submission, and in earlier exports. A receipt showing seq N and hash H must match event N in the event list of this record; a history rewritten after the receipt was sent would not.",
     "The check shows that the recorded history has not been changed. It does not show that the recorded statements are true.",
   );
-  return { ok: v.ok, headline: v.ok ? "Hash-chain verification: OK" : "Hash-chain verification: FAILED", facts, paragraphs };
+  const mismatches = record.contentHashes.mismatches.length;
+  if (mismatches > 0) {
+    paragraphs.push(
+      `Item content hashes: ${mismatches} item version(s) do not match their recorded content hash (listed above). Confirmations naming those hashes must not be relied on.`,
+    );
+  }
+  const chain = v.ok ? "Hash-chain verification: OK" : "Hash-chain verification: FAILED";
+  const headline = mismatches > 0 ? `${chain} · item content hashes: ${mismatches} MISMATCH` : chain;
+  return { ok: v.ok, headline, facts, paragraphs };
 }
 
 export const CONTENT_HASH_LABEL = "Item content hashes";

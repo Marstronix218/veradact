@@ -78,7 +78,7 @@ describe("buildRecordExport", () => {
 
     const md = renderRecordMarkdown(record, contextFor(b, forged));
     const n = record.contentHashes.checked;
-    expect(md).toContain("**Hash-chain verification: OK**");
+    expect(md).toContain("**Hash-chain verification: OK · item content hashes: 1 MISMATCH**");
     expect(md).toContain("chain_verified: true");
     expect(md).toContain("content_hashes_verified: false");
     expect(md).toContain(`- **Item content hashes:** ${n - 1} of ${n} verified; 1 MISMATCH (${shortId} v1 at seq ${target.seq})`);
@@ -108,7 +108,8 @@ describe("renderRecordMarkdown", () => {
     const { record, ctx } = halvRecord(tamperedLog(b.log, target));
     expect(record.verification).toMatchObject({ ok: false, reason: "hash_mismatch", firstBadSeq: target, checked: target - 1 });
     const md = renderRecordMarkdown(record, ctx);
-    expect(md).toContain("**Hash-chain verification: FAILED**");
+    // A changed payload also breaks that item version's content hash; the headline reports both.
+    expect(md).toContain("**Hash-chain verification: FAILED · item content hashes: 1 MISMATCH**");
     expect(md).toContain("- **Result:** FAILED");
     expect(md).toContain(`- **Events checked:** ${target - 1} of ${record.events.length} verified before the failure`);
     expect(md).toContain("(hash\\_mismatch)");
@@ -165,6 +166,9 @@ describe("renderRecordMarkdown", () => {
       for (const line of quote.split("\n")) expect(off).not.toContain(line);
     }
     expect(off).toContain("**AI is off for this engagement.**");
+    // The record is a vendor-internal dispute artifact: confirmer names stay even when AI is off.
+    expect(off).toContain(`- **Confirmed by:** ${NAMES.alice}`);
+    expect(off).not.toContain("Client contact");
   });
 
   it("is deterministic and names files by generation date in the engagement time zone", () => {
