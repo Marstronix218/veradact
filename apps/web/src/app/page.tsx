@@ -1,7 +1,6 @@
-export default function HomePage() {
-  return (
-    <main className="p-8">
-      <h1 className="text-3xl font-semibold">Veradact</h1>
-    </main>
-  );
+import { redirect } from "next/navigation";
+import { getAuth } from "@/lib/session";
+
+export default async function HomePage() {
+  redirect((await getAuth()) ? "/engagements" : "/login");
 }

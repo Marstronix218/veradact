@@ -1,20 +1,36 @@
+import { existsSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { defineConfig, devices } from "@playwright/test";
+
+const webDir = path.dirname(fileURLToPath(import.meta.url));
+
+// The e2e helpers need DATABASE_ADMIN_URL (fixtures) and the dev server needs the app env.
+const rootEnv = path.resolve(webDir, "../../.env");
+if (existsSync(rootEnv)) process.loadEnvFile(rootEnv);
+
+// Must match APP_URL: magic links in emails point there.
+const baseURL = process.env.APP_URL ?? "http://localhost:3000";
 
 export default defineConfig({
   testDir: "./e2e",
+  globalSetup: "./e2e/global-setup.ts",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   reporter: "list",
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL,
     trace: "on-first-retry",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
     command: "pnpm dev",
-    url: "http://localhost:3000",
-    reuseExistingServer: true,
+    cwd: webDir,
+    url: `${baseURL}/login`,
+    // Real SMTP delivery into Mailpit, which the helpers read.
+    env: { EMAIL_PROVIDER: "smtp" },
+    reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },
 });

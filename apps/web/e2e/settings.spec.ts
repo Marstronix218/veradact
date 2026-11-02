@@ -1,0 +1,90 @@
+import { expect, test } from "@playwright/test";
+import { loginAs } from "./helpers/auth";
+import { closeAdminDb, createOrgWithAdmin, createUser } from "./helpers/db";
+
+test.afterAll(closeAdminDb);
+
+test("vendor pages send the security headers", async ({ page }) => {
+  const response = await page.goto("/login");
+  const headers = response?.headers() ?? {};
+  expect(headers["x-frame-options"]).toBe("DENY");
+  expect(headers["x-content-type-options"]).toBe("nosniff");
+  expect(headers["referrer-policy"]).toBe("strict-origin-when-cross-origin");
+});
+
+test("an admin changes org settings", async ({ page }) => {
+  const { admin } = await createOrgWithAdmin();
+  await loginAs(page, admin.email);
+  await page.goto("/settings");
+
+  const ai = page.getByLabel("Use AI to suggest items from sources");
+  await expect(ai).toBeChecked();
+  await ai.uncheck();
+  await page.getByLabel("Delete source text after (days)").fill("90");
+  await page.getByLabel("All-party consent states").fill("wa, ca");
+  await page.getByRole("button", { name: "Save settings" }).click();
+  await expect(page.getByText("Settings saved.")).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByLabel("Use AI to suggest items from sources")).not.toBeChecked();
+  await expect(page.getByLabel("Delete source text after (days)")).toHaveValue("90");
+  await expect(page.getByLabel("All-party consent states")).toHaveValue("CA, WA");
+
+  await page.getByLabel("All-party consent states").fill("ZZ");
+  await page.getByRole("button", { name: "Save settings" }).click();
+  await expect(page.getByText("must be two-letter US state codes")).toBeVisible();
+});
+
+test("a member sees settings read-only", async ({ page }) => {
+  const { orgId } = await createOrgWithAdmin();
+  const member = await createUser(orgId, "member");
+  await loginAs(page, member.email);
+  await page.goto("/settings");
+  await expect(page.getByText("Only admins can change organization settings.")).toBeVisible();
+  await expect(page.getByLabel("Use AI to suggest items from sources")).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Save settings" })).toHaveCount(0);
+
+  await page.goto("/settings/users");
+  await expect(page.getByText("Only admins can add or deactivate users.")).toBeVisible();
+});
+
+test("an admin adds and deactivates a user", async ({ page }) => {
+  const { admin } = await createOrgWithAdmin();
+  await loginAs(page, admin.email);
+  await page.goto("/settings/users");
+
+  const email = `e2e-invitee-${Date.now()}@example.test`;
+  await page.getByLabel("Name").fill("Ivy Invitee");
+  await page.getByLabel("Email").fill(email);
+  await page.getByRole("button", { name: "Add user" }).click();
+  await expect(page.getByText(`Added ${email}.`)).toBeVisible();
+
+  const row = page.getByRole("row", { name: /Ivy Invitee/ });
+  await expect(row.getByText("Active")).toBeVisible();
+  page.once("dialog", (dialog) => dialog.accept());
+  await row.getByRole("button", { name: "Deactivate" }).click();
+  await expect(page.getByRole("row", { name: /Deactivated user/ }).getByText("Deactivated", { exact: true })).toBeVisible();
+});
+
+test("a user creates, sees once and revokes an API token", async ({ page }) => {
+  const { admin } = await createOrgWithAdmin();
+  await loginAs(page, admin.email);
+  await page.goto("/settings/api-tokens");
+  await expect(page.getByText("No API tokens")).toBeVisible();
+
+  await page.getByLabel("Token name").fill("Claude Code");
+  await page.getByRole("button", { name: "Create token" }).click();
+  const created = page.getByTestId("new-api-token");
+  await expect(created).toContainText("won't be shown again");
+  await expect(page.getByLabel("New API token")).toHaveValue(/^vdt_[A-Za-z0-9_-]{43}$/);
+  if (process.env.MCP_PUBLIC_URL) await expect(created).toContainText(process.env.MCP_PUBLIC_URL);
+
+  const row = page.getByRole("row", { name: /Claude Code/ });
+  await expect(row.getByText("Active")).toBeVisible();
+  page.once("dialog", (dialog) => dialog.accept());
+  await row.getByRole("button", { name: "Revoke" }).click();
+  await expect(row.getByText("Revoked")).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByTestId("new-api-token")).toHaveCount(0);
+});
