@@ -6,10 +6,16 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./testing": "./src/testing.ts"
   },
   "scripts": {
+    "generate": "drizzle-kit generate",
     "migrate": "tsx src/migrate.ts",
+    "migrate:test": "tsx src/migrate.ts --test",
+    "migrate:all": "tsx src/migrate.ts --all",
+    "reset-test-db": "tsx src/reset-test-db.ts",
+    "org:create": "tsx src/scripts/org-create.ts",
     "seed": "tsx src/seed.ts",
     "typecheck": "tsc --noEmit"
   },
