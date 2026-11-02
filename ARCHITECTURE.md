@@ -26,7 +26,7 @@ Product spec: [`docs/SPEC.md`](docs/SPEC.md). Decision log: [`DECISIONS.md`](DEC
           packages/export— spec markdown, record markdown + PDF, ExportTarget interface
           packages/email — EmailProvider: console | smtp (Mailpit in dev) | memory (tests)
                                 ▼
-                       Postgres 16 (docker compose, port 54330) · Mailpit (54331 smtp / 54332 ui)
+                       Supabase Postgres 17 (local: Supabase CLI, port 54330) · Mailpit (54331 smtp / 54332 ui)
 ```
 
 Dependency direction: `apps/* → core → db`; `core → ingest, ai, email`; `export → core` (types only for the pure renderers; the `@veradact/export/server` loaders also use core and db at runtime, D-048; core never imports export). `core/domain` does no IO and never reads the clock (time is a parameter). Packages are consumed as TypeScript source (no build step); Next uses `transpilePackages`, scripts and the MCP server run on `tsx --env-file`. No DB access from Next middleware (postgres.js needs the Node runtime).
@@ -113,7 +113,7 @@ Database enforcement (hand-written migration SQL):
 | `notification` | `id, org_id, user_id, engagement_id, kind ('item_disputed'\|'authorization_declined'), item_id null, contact_id null, read_at, created_at` |
 | `usage_event` | `id, org_id, engagement_id, kind ('spec_export'\|'record_export_md'\|'record_export_pdf'\|'mcp_fetch'), user_id, api_token_id, tool, created_at` |
 | `audit_log` | `id, org_id, actor_user_id, action, target_type, target_id, metadata jsonb (ids/enums only), created_at` — app role `SELECT, INSERT` only |
-| `rate_limit_bucket` | `key (sha256), window_start, count` — no tenant data, the only table without RLS |
+| `rate_limit_bucket` | `key (sha256), window_start, count` — no tenant data, the only table without the tenant policy (RLS limits it to `veradact_app`) |
 
 ---
 
@@ -232,12 +232,12 @@ Rule: **anything that identifies or was authored by a client contact, all source
 
 ## 7. Tenant isolation
 
-- Roles: `veradact_admin` owns all objects, runs migrations, seed and `org:create`. `veradact_app` (`NOSUPERUSER NOBYPASSRLS`) is the only role the apps use.
+- Roles: the owner role (`postgres` on Supabase, D-061) owns all objects, runs migrations, seed and `org:create`. `veradact_app` (`NOSUPERUSER NOBYPASSRLS`) is the only role the apps use. Supabase's API roles (`anon`, `authenticated`, `service_role`) hold no privilege on any Veradact object (migration 0006).
 - Every tenant table: `ENABLE ROW LEVEL SECURITY` + policy `USING (org_id = app_current_org()) WITH CHECK (org_id = app_current_org())`, `app_current_org()` = `nullif(current_setting('app.org_id', true), '')::uuid`. No setting → no rows.
 - `withTenant(db, { orgId, userId? }, fn)` opens a transaction, runs `select set_config('app.org_id', $1, true)`, then `fn(tx)`. All tenant data access goes through it.
-- Pre-tenant lookups: narrow `SECURITY DEFINER` functions owned by `veradact_admin`, `SET search_path = public, pg_temp`, `REVOKE EXECUTE … FROM PUBLIC`, `GRANT EXECUTE … TO veradact_app`, returning ids only: `auth_find_user_by_email(email)`, `auth_consume_login_token(hash)` (single-use `UPDATE … RETURNING`), `auth_resolve_session(hash)`, `auth_resolve_api_token(hash)`, `link_resolve(link_id)`, `jobs_list_org_ids()`.
+- Pre-tenant lookups: narrow `SECURITY DEFINER` functions owned by the owner role, `SET search_path = public, pg_temp`, `REVOKE EXECUTE … FROM PUBLIC`, `GRANT EXECUTE … TO veradact_app`, returning ids only: `auth_find_user_by_email(email)`, `auth_consume_login_token(hash)` (single-use `UPDATE … RETURNING`), `auth_resolve_session(hash)`, `auth_resolve_api_token(hash)`, `link_resolve(link_id)`, `jobs_list_org_ids()`.
 - Jobs iterate `jobs_list_org_ids()` and do all work per org inside `withTenant`.
-- Tests: (1) a catalog sweep fails on any `public` table without RLS enabled and an `org_id` column, except an allow-list (`rate_limit_bucket`, migration bookkeeping); (2) for every tenant table, a session scoped to org A cannot read, insert, update or delete org B rows, and `insert … org_id = B` fails `WITH CHECK`.
+- Tests: (1) a catalog sweep fails on any `public` table without RLS enabled and an `org_id` column, except an allow-list (`rate_limit_bucket`, migration bookkeeping); (2) for every tenant table, a session scoped to org A cannot read, insert, update or delete org B rows, and `insert … org_id = B` fails `WITH CHECK`; (3) the Supabase API roles hold no grant on any table, sequence or definer function, get none from default privileges, and are refused by the database (`supabase-roles.int.test.ts`).
 
 ---
 
@@ -383,9 +383,41 @@ Engagement list · Engagement ledger (filter by kind, status, needs-review) · I
 
 ## 17. Deployment (pilot)
 
-Any Node 22 host for `apps/web` and `apps/mcp` plus managed Postgres 16. Production email through any SMTP provider (`SMTP_URL`). A scheduler (platform cron or similar) calls `/api/cron/reminders` hourly and `/api/cron/retention` daily with `Authorization: Bearer $CRON_SECRET` (or runs `pnpm jobs:run`). No vendor-specific deployment code in the MVP.
+Any Node 22 host for `apps/web` and `apps/mcp` plus a Supabase project as the database (Postgres 17; any Postgres 16+ works, D-061). Production email through any SMTP provider (`SMTP_URL`). A scheduler (platform cron or similar) calls `/api/cron/reminders` hourly and `/api/cron/retention` daily with `Authorization: Bearer $CRON_SECRET` (or runs `pnpm jobs:run`). No vendor-specific deployment code in the MVP.
 
 - Run both apps behind a TLS-terminating proxy and set `TRUSTED_PROXY_HOPS` to exactly the number of trusted proxies that append to `X-Forwarded-For` (§14). Running without a proxy is unsupported in production; the web app refuses to start with `TRUSTED_PROXY_HOPS=0`. `APP_URL` must be the public https URL (cookies, links, CSRF checks and HSTS depend on it).
 - **Proxies, CDNs and load balancers must not log the path or query of `/c/*` and `/auth/verify` requests**: client links and magic links carry their bearer token in the URL. Configure access logs to drop or truncate those paths (the app's own logs never contain them).
 - Generate `SESSION_SECRET`, `LINK_SIGNING_SECRET` and `CRON_SECRET` with `openssl rand -base64 32`; the app refuses the `.env.example` placeholders in production. Rotating `LINK_SIGNING_SECRET` invalidates outstanding client links.
 - Migrations run with the owner role (`DATABASE_ADMIN_URL`) from a release step; the apps get only `DATABASE_URL` (`veradact_app`).
+
+### 17.1 Supabase
+
+Supabase hosts Postgres only (D-061): the apps keep their own auth, RLS and migrations and never use supabase-js, the anon/service keys, Supabase Auth or the Data API.
+
+1. **Create and harden the project.** Pick the region the data must stay in (Postgres 17, matching `supabase/config.toml`). Then:
+   - In the project's Data API settings, turn off "Enable Data API". Migration 0006 already locks the API roles out of schema `public`, so this is defence in depth.
+   - Under Authentication, turn off sign-ups and every provider. Supabase Auth stays on even with the Data API off, and open sign-ups would collect PII in `auth.users`, outside Veradact's erasure.
+   - Turn on SSL enforcement and Network Restrictions: only the app hosts and the release runner should reach the database. The `postgres` role has `BYPASSRLS` and can disable the append-only triggers.
+   - Do not enable `pg_net`, `http`, `dblink`, `postgres_fdw` or Database Webhooks. They let SQL make outbound connections, which would bypass invariant 9's server-side gate.
+   - Keep the dashboard's AI assistant from reading project data; it would send source text to a model provider.
+2. **Run `pnpm db:cloud-setup`.** First put the owner URL in the gitignored `.env.cloud` at the repo root: `DATABASE_ADMIN_URL="postgres://postgres.<ref>:<db-password>@<pooler-host>:5432/postgres"`, copied from the dashboard's Connect panel → Session pooler. The script (`packages/db/src/cloud-setup.ts`) then:
+   - runs the migrations;
+   - gives `veradact_app` a login with a random 256-bit password, sent as a SCRAM verifier. Supabase logs DDL, so the plain text must never reach it; running the script again rotates the password;
+   - writes the app's `DATABASE_URL` into `.env.cloud`;
+   - logs in as `veradact_app` and checks RLS and the API-role lockdown.
+3. **Point the apps at the pooler** with that `DATABASE_URL`. Supavisor addresses custom roles as `<role>.<ref>`:
+   - Long-running servers: session mode on port 5432, as written.
+   - Serverless hosts: transaction mode, port 6543 with `&prepare=false` added.
+
+   Size the pool for every process: the web app and the MCP server each open up to 10 connections per instance, `jobs:run` 2. Transaction pooling is reasoned, not tested here (the local stack runs without the pooler). It is safe because `withTenant` sets `app.org_id` with `set_config(…, true)`, the append lock is `pg_advisory_xact_lock`, and the apps keep no session state. Anyone holding the app password can set `app.org_id` to any tenant, so treat a leak as a full breach and rerun the script to rotate it.
+4. **TLS.** For `*.supabase.com` and `*.supabase.co` hosts, `createDb` and the migrations verify the server certificate and host name against Supabase's public root CA, which is built in (`packages/db/src/supabase-ca.ts`; it verified `*.pooler.supabase.com` on 2026-11-02). This holds whatever `sslmode` says. For another provider, set `DATABASE_CA_CERT_FILE` to its CA's PEM file. Don't use `NODE_EXTRA_CA_CERTS`: Node reads it before Next loads `.env`, and it would widen trust for every TLS connection.
+5. **Manual alternative to step 2:** run `pnpm --filter @veradact/db migrate` with `DATABASE_ADMIN_URL` set. Then, in psql, run `\password veradact_app` and `ALTER ROLE veradact_app LOGIN;`. Never run `ALTER ROLE … PASSWORD '…'` in the SQL editor.
+6. **`citext` must be installed in `public`**, because the definer functions pin `search_path = public, pg_temp`. Migration 0000 installs it there; do not enable it into `extensions` from the dashboard first.
+7. **What Supabase itself can see.** Hosting on Supabase means trusting the platform, as with any managed database:
+   - its operational roles (`supabase_read_only_user` and others) bypass RLS;
+   - server logs keep error details for the plan's log retention, including an email on a unique violation, e.g. inviting an address that is already registered;
+   - backups and point-in-time recovery keep erased `contact_pii` rows for their retention window.
+
+   Set log and backup retention to match the privacy policy.
+
+Never run `pnpm seed --reset` or the tests against a hosted project: the reset deletes event rows (it refuses Supabase hosts even with `--force`), and test setup drops `public` in the `*_test` database.

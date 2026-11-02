@@ -43,6 +43,13 @@
       "when": 1793597052069,
       "tag": "0005_client_email_domains",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793609698346,
+      "tag": "0006_supabase_api_lockdown",
+      "breakpoints": true
     }
   ]
 }

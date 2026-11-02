@@ -9,8 +9,8 @@
   },
   "scripts": {
     "dev": "pnpm -r --parallel --filter \"./apps/*\" dev",
-    "db:up": "docker compose up -d",
-    "db:down": "docker compose down",
+    "db:up": "supabase start && pnpm --filter @veradact/db bootstrap",
+    "db:down": "supabase stop",
     "db:migrate": "pnpm --filter @veradact/db migrate:all",
     "seed": "pnpm --filter @veradact/seed seed",
     "org:create": "pnpm --filter @veradact/db org:create",
@@ -18,7 +18,8 @@
     "test": "vitest run",
     "test:e2e": "pnpm --filter @veradact/web test:e2e",
     "lint": "eslint .",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "db:cloud-setup": "pnpm --filter @veradact/db cloud-setup"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",

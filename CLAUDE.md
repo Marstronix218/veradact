@@ -6,7 +6,7 @@ Veradact proves what a client agreed to: a typed, versioned, hash-chained record
 
 ```bash
 pnpm install
-pnpm db:up            # Postgres 16 on :54330, Mailpit on :54331 (smtp) / :54332 (web UI)
+pnpm db:up            # local Supabase (CLI): Postgres 17 on :54330, Mailpit :54331 (smtp) / :54332 (web), Studio :54334
 pnpm db:migrate       # applies migrations to DATABASE_ADMIN_URL and TEST_DATABASE_ADMIN_URL
 pnpm seed             # fictional demo org (Quillfield Labs) + engagement (Halvorsen Freight, HALV)
 pnpm dev              # web on :3000, MCP on :3001
@@ -20,7 +20,7 @@ pnpm jobs:run         # reminders + retention, once
 ## Layout
 
 - `packages/core` — `domain/` is pure (no IO, no Date.now — time is passed in); `store/`, `commands/`, `queries/`, `confirmation/`, `auth/`, `jobs/` use the DB.
-- `packages/db` — Drizzle schema, migrations (generated + hand-written SQL for roles, RLS, triggers, security-definer functions), `withTenant`.
+- `packages/db` — Drizzle schema, migrations (generated + hand-written SQL for roles, RLS, triggers, security-definer functions, Supabase API-role lockdown), `withTenant`. Supabase is only the Postgres host (D-061): no supabase-js, Supabase Auth or Data API.
 - `packages/ingest`, `packages/ai`, `packages/export`, `packages/email` — see `ARCHITECTURE.md` §1.
 - `apps/web` (Next.js 15 App Router, vendor app + client pages at `/c/[token]`), `apps/mcp` (remote MCP server).
 

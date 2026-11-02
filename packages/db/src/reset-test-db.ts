@@ -20,6 +20,22 @@ export async function resetTestDatabase(adminUrl: string): Promise<void> {
       DROP SCHEMA IF EXISTS public CASCADE;
       CREATE SCHEMA public;
     `);
+    // Give the fresh schema the grants a real database's public schema has (PUBLIC USAGE since
+    // Postgres 15, and on Supabase, D-061, the API roles' grants and default privileges), so the
+    // migrations face the same defaults as in a hosted project and migration 0006 is tested.
+    await sql.unsafe(`
+      GRANT USAGE ON SCHEMA public TO PUBLIC;
+      DO $$
+      BEGIN
+        IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+          GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+          ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
+          ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
+          ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon, authenticated, service_role;
+        END IF;
+      END
+      $$;
+    `);
     await runMigrations(adminUrl);
     // A recreated schema has no PUBLIC grants. Migration 0002 grants this too; repeating it
     // keeps the reset correct even if that migration changes.

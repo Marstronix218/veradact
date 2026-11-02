@@ -1,7 +1,7 @@
 // Fixed-window rate limiting in Postgres (ARCHITECTURE §14, D-017). One row per
 // (key, window); `key` is the sha256 of scope + window length + identifier, so raw IPs,
-// emails and tokens never reach the table. `rate_limit_bucket` has no tenant data and no RLS,
-// so these run on the app-role Db outside withTenant.
+// emails and tokens never reach the table. `rate_limit_bucket` has no tenant data and no tenant
+// policy (RLS admits only the app role), so these run on the app-role Db outside withTenant.
 import { sql } from "drizzle-orm";
 import type { Queryable } from "@veradact/db";
 import { hashToken } from "./tokens";

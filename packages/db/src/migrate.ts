@@ -9,12 +9,13 @@ import { parseArgs } from "node:util";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
+import { tlsOptions } from "./client";
 import { loadRootEnv, requireEnv } from "./env";
 
 export const migrationsFolder = fileURLToPath(new URL("../migrations", import.meta.url));
 
 export async function runMigrations(adminUrl: string): Promise<void> {
-  const sql = postgres(adminUrl, { max: 1, onnotice: () => {} });
+  const sql = postgres(adminUrl, { max: 1, ssl: tlsOptions(adminUrl), onnotice: () => {} });
   try {
     await migrate(drizzle({ client: sql }), { migrationsFolder });
   } finally {

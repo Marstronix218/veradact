@@ -198,4 +198,10 @@ describe("demo seed: integrity", () => {
     expect((await purgeDemoOrg(admin.db, slug, guard())).found).toBe(true);
     expect(await purgeDemoOrg(admin.db, slug, guard())).toEqual({ found: false, orgId: null, deleted: {} });
   });
+
+  it("refuses a forced purge of a non-local database that is a Supabase project, whatever its name", async () => {
+    // The local stack runs supautils like a hosted project; the URL stands in for an IP or a CNAME.
+    const forced = { databaseUrl: "postgres://postgres:pw@203.0.113.10:5432/postgres", nodeEnv: "test", force: true };
+    await expect(purgeDemoOrg(admin.db, "no-such-org", forced)).rejects.toThrow(/Supabase project \(supautils is loaded\)/);
+  });
 });

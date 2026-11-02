@@ -8,16 +8,17 @@ Everything here is synthetic: the demo org (Quillfield Labs) and client (Halvors
 
 - **Node 22** (`.nvmrc`; `nvm use`)
 - **pnpm 10** (`corepack enable` picks up the version pinned in `package.json`)
-- **Docker** with Compose (Postgres 16 and Mailpit run in containers)
+- **Docker** (the Supabase CLI runs its services in containers)
+- **Supabase CLI** 2.75 or later (`brew install supabase/tap/supabase`, or see the [install guide](https://supabase.com/docs/guides/local-development/cli/getting-started)). Supabase is the database host. Locally it runs Postgres 17, Mailpit and Studio; Supabase Auth, Storage and the client SDK are not used (D-061).
 
-Ports used: 54330 (Postgres), 54331 (Mailpit SMTP), 54332 (Mailpit web UI), 3000 (web app), 3001 (MCP server).
+Ports used: 54330 (Postgres), 54331 (Mailpit SMTP), 54332 (Mailpit web UI), 54333 (Supabase API gateway), 54334 (Supabase Studio), 3000 (web app), 3001 (MCP server).
 
 ## Quickstart
 
 ```bash
 pnpm install
 cp .env.example .env      # dev-only values; works as is
-pnpm db:up                # Postgres on :54330, Mailpit on :54331/:54332
+pnpm db:up                # local Supabase: Postgres on :54330, Mailpit on :54331/:54332, Studio on :54334
 pnpm db:migrate           # dev and test databases
 pnpm seed                 # demo org, users, engagements; prints the logins and an MCP token
 pnpm dev                  # web on http://localhost:3000, MCP on http://localhost:3001/mcp
@@ -31,7 +32,7 @@ Then sign in:
 
 No API key is needed: without `ANTHROPIC_API_KEY`, AI extraction uses the `fixture` client, which answers from the repository's synthetic fixtures and sends nothing anywhere.
 
-Timed from a fresh clone with the pnpm store warm and the Docker images already pulled: about 20 seconds of commands to a signed-in session (breakdown at the bottom of this file), so the 10-minute budget is mostly reading. A cold `pnpm install` (~480 packages) and the first `docker pull` of `postgres:16-alpine` and `axllent/mailpit` add a few minutes depending on the network.
+Timed from a fresh clone with the pnpm store warm and the Docker images already pulled: about 20 seconds of commands to a signed-in session (breakdown at the bottom of this file), so the 10-minute budget is mostly reading. A cold `pnpm install` (~480 packages) and the first `supabase start` (it pulls the Supabase images, about 1 GB) add a few minutes depending on the network. `pnpm db:down` stops the stack and keeps its data.
 
 ## A 5-minute demo tour
 
@@ -130,7 +131,7 @@ fixtures/         synthetic transcripts, seed data and eval sets
 
 ## Deployment notes
 
-See ARCHITECTURE §17. In short: any Node 22 host for `apps/web` and `apps/mcp`, managed Postgres 16 (migrations with the owner role, the apps with `veradact_app` only), any SMTP provider (`EMAIL_PROVIDER=smtp`, `SMTP_URL`, `EMAIL_FROM`), and a scheduler calling the cron routes. Also:
+See ARCHITECTURE §17. In short: any Node 22 host for `apps/web` and `apps/mcp`, a Supabase project as the database (Data API and Supabase Auth sign-ups off, network restrictions on; migrations as `postgres`, the apps as `veradact_app` through the pooler with TLS verified; step by step in §17.1; `pnpm db:cloud-setup` does the database part in one command), any SMTP provider (`EMAIL_PROVIDER=smtp`, `SMTP_URL`, `EMAIL_FROM`), and a scheduler calling the cron routes. Also:
 
 - Generate `SESSION_SECRET`, `LINK_SIGNING_SECRET` and `CRON_SECRET` with `openssl rand -base64 32`. In production the app refuses to start with the `.env.example` placeholders.
 - Set `APP_URL` to the public https URL and `TRUSTED_PROXY_HOPS` to exactly the number of trusted proxies that append to `X-Forwarded-For` (1 for a single load balancer or platform router such as Fly, Render, Railway or Heroku; 2 for a CDN in front of a load balancer). Rate limits and evidence IPs depend on it. Running without a proxy is unsupported in production: with `TRUSTED_PROXY_HOPS=0` every web request would share one rate-limit key, so the web app refuses to start (ARCHITECTURE §14).
@@ -138,23 +139,23 @@ See ARCHITECTURE §17. In short: any Node 22 host for `apps/web` and `apps/mcp`,
 
 ## Troubleshooting
 
-- **A port is in use** (54330, 54331, 54332, 3000, 3001): `lsof -nP -iTCP:<port> -sTCP:LISTEN` shows the process. Stop it, or change the host port in `docker-compose.yml` and the matching URLs in `.env` (`DATABASE_URL`, `SMTP_URL`, `APP_URL`, `MCP_PORT`/`MCP_PUBLIC_URL`).
+- **A port is in use** (54330–54338, 3000, 3001): `lsof -nP -iTCP:<port> -sTCP:LISTEN` shows the process. Stop it, or change the port in `supabase/config.toml` and the matching URLs in `.env` (`DATABASE_URL`, `SMTP_URL`, `APP_URL`, `MCP_PORT`/`MCP_PUBLIC_URL`).
 - **`pnpm seed` says the demo org already exists**: `pnpm seed --reset` purges it and seeds again (dev databases on localhost only; refuses in production).
 - **Playwright cannot find a browser**: `pnpm --filter @veradact/web exec playwright install chromium`.
 - **`next build` breaks a running `pnpm dev`** (or the reverse): both use `apps/web/.next`. Stop the dev server before building, or build in a copy (`cp -c -R` on macOS makes an instant clone).
-- **No sign-in email**: check that Mailpit runs (`docker compose ps`) and that `.env` has `EMAIL_PROVIDER=smtp` and `SMTP_URL=smtp://localhost:54331`. Login requests are rate limited (20 per 15 minutes per IP, 5 per address, ARCHITECTURE §14) and still answer "check your email" when limited; wait 15 minutes or clear the windows in the dev database with `docker compose exec postgres psql -U veradact_admin -d veradact -c 'delete from rate_limit_bucket'`.
+- **No sign-in email**: check that the stack runs (`supabase status`) and that `.env` has `EMAIL_PROVIDER=smtp` and `SMTP_URL=smtp://localhost:54331`. Login requests are rate limited (20 per 15 minutes per IP, 5 per address, ARCHITECTURE §14) and still answer "check your email" when limited; wait 15 minutes or clear the windows in the dev database with `docker exec supabase_db_veradact psql -U postgres -c 'delete from rate_limit_bucket'`.
 - **Tests hang at "waiting for another test run"**: another `pnpm test` holds the test database; it continues when that run ends.
 
 ## Quickstart timing
 
-Measured on 2026-11-01 from a fresh APFS clone without `node_modules` and a fresh `.env`, with the pnpm store warm, the Docker images pulled and the containers already up:
+Measured on 2026-11-01 from a fresh APFS clone without `node_modules` and a fresh `.env`, with the pnpm store warm, the Docker images pulled and the containers already up (the database steps re-measured on 2026-11-02 against the local Supabase stack):
 
 | step | time |
 |---|---|
 | `pnpm install` | 2.7 s |
 | `cp .env.example .env` | < 1 s |
-| `pnpm db:up` | 0.8 s |
-| `pnpm db:migrate` | 1.0 s |
+| `pnpm db:up` | 1.2 s |
+| `pnpm db:migrate` | 0.7 s |
 | `pnpm seed --reset` | 2.5 s |
 | `pnpm dev` until the login page answers | 8.2 s |
 | login: request link, open it from Mailpit, sign in | 4.3 s (scripted with Playwright) |

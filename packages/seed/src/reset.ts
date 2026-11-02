@@ -8,14 +8,15 @@
 // │ checks) for that transaction only. It deletes every row of ONE org, found by slug, from   │
 // │ every table that has an `org_id` column, then the org itself — nothing else.              │
 // │                                                                                          │
-// │ It refuses to run when NODE_ENV=production (no override), and against any database host   │
-// │ other than localhost / 127.0.0.1 unless `--force` is given. Never call it from app code,  │
-// │ jobs or migrations, and never point it at a database whose history matters.               │
+// │ It refuses to run when NODE_ENV=production and against hosted Supabase (no override), and │
+// │ against any other non-local database host unless `--force` is given. Never call it from  │
+// │ app code, jobs or migrations, and never point it at a database whose history matters.     │
 // └──────────────────────────────────────────────────────────────────────────────────────────┘
 import { sql } from "drizzle-orm";
-import { getPgError, type Db } from "@veradact/db";
+import { connectionHosts, getPgError, isLocalDatabaseUrl, type Db } from "@veradact/db";
 
-const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1"]);
+/** Hosted Supabase lets its postgres role skip triggers too, so --force never reaches it (D-061). */
+const SUPABASE_HOSTED = /\.supabase\.(co|com)\.?$/;
 
 export interface ResetGuardInput {
   /** The admin connection string the purge will run on. */
@@ -33,14 +34,9 @@ export class ResetRefusedError extends Error {
   }
 }
 
-/** The database host of a connection string, or null when it cannot be parsed. */
+/** The host(s) the connection string really connects to (`?host=` included), or null when it cannot be parsed. */
 export function databaseHost(databaseUrl: string): string | null {
-  try {
-    const host = new URL(databaseUrl).hostname;
-    return host === "" ? null : host;
-  } catch {
-    return null;
-  }
+  return connectionHosts(databaseUrl)?.join(",") ?? null;
 }
 
 /** Throws `ResetRefusedError` unless the purge is allowed (see the banner above). */
@@ -49,10 +45,13 @@ export function assertResetAllowed(input: ResetGuardInput): void {
     throw new ResetRefusedError("refusing to purge: NODE_ENV is production (the reset is a dev-only escape hatch; --force does not override this)");
   }
   const host = databaseHost(input.databaseUrl);
-  if (host === null || !LOCAL_HOSTS.has(host)) {
+  if (connectionHosts(input.databaseUrl)?.some((h) => SUPABASE_HOSTED.test(h))) {
+    throw new ResetRefusedError(`refusing to purge: "${host}" is a hosted Supabase database (--force does not override this)`);
+  }
+  if (!isLocalDatabaseUrl(input.databaseUrl)) {
     if (!input.force) {
       throw new ResetRefusedError(
-        `refusing to purge: database host ${host === null ? "(unparseable)" : `"${host}"`} is not localhost or 127.0.0.1 (pass --force if this really is a disposable dev database)`,
+        `refusing to purge: database host ${host === null ? "(unparseable)" : `"${host}"`} is not localhost, 127.0.0.1 or ::1 (pass --force if this really is a disposable dev database)`,
       );
     }
   }
@@ -74,12 +73,20 @@ export async function purgeDemoOrg(adminDb: Db, slug: string, guard: ResetGuardI
   assertResetAllowed(guard);
   try {
     return await adminDb.transaction(async (tx) => {
+      // A forced non-local purge must not reach hosted Supabase by any name (an IP, a CNAME):
+      // supautils is what lets its postgres role skip the triggers below.
+      if (!isLocalDatabaseUrl(guard.databaseUrl)) {
+        const [supautils] = await tx.execute<{ role: string | null }>(
+          sql`select current_setting('supautils.privileged_role', true) as role`,
+        );
+        if (supautils?.role) throw new ResetRefusedError("refusing to purge: the database is a Supabase project (supautils is loaded)");
+      }
       const found = await tx.execute<{ id: string }>(sql`select id from org where slug = ${slug} for update`);
       const orgId = found[0]?.id;
       if (!orgId) return { found: false, orgId: null, deleted: {} };
 
       // Transaction-local: ordinary triggers (append-only, chain) and FK triggers are skipped
-      // until commit/rollback. Requires a superuser owner (the docker dev role is one).
+      // until commit/rollback. Requires a superuser, or Supabase's postgres role (supautils allows it).
       await tx.execute(sql`set local session_replication_role = replica`);
 
       // Every base table with an org_id column, so a table added later is purged too.
@@ -104,7 +111,7 @@ export async function purgeDemoOrg(adminDb: Db, slug: string, guard: ResetGuardI
   } catch (error) {
     // 42501: the role may not set session_replication_role (not a superuser).
     const pg = getPgError(error);
-    if (pg?.code === "42501") throw new ResetRefusedError("the admin role cannot set session_replication_role (superuser required)");
+    if (pg?.code === "42501") throw new ResetRefusedError("the admin role cannot set session_replication_role (needs a superuser or Supabase's postgres role)");
     throw error;
   }
 }

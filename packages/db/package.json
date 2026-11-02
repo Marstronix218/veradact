@@ -16,7 +16,9 @@
     "migrate:all": "tsx src/migrate.ts --all",
     "reset-test-db": "tsx src/reset-test-db.ts",
     "org:create": "tsx src/scripts/org-create.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "bootstrap": "tsx src/bootstrap-local.ts",
+    "cloud-setup": "tsx src/cloud-setup.ts"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.4",

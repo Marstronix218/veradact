@@ -1,0 +1,59 @@
+# Local Supabase stack for development and tests (`pnpm db:up`, D-061). Veradact uses Supabase
+# as its Postgres host: the app keeps its own auth, RLS and migrations (packages/db), so only
+# Postgres, the mail catcher and Studio run here. Unlisted settings keep the CLI defaults.
+project_id = "veradact"
+
+[api]
+# The Data API (PostgREST) stays on locally because it is on by default in a new hosted project;
+# migration 0006 revokes every grant it would use. Turn it off in hosted projects (ARCHITECTURE §17).
+enabled = true
+port = 54333
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54330
+shadow_port = 54335
+health_timeout = "2m"
+# Match the hosted project (`SHOW server_version;`).
+major_version = 17
+
+[db.pooler]
+enabled = false
+port = 54336
+
+# Veradact's migrations and seed run through pnpm (db:migrate, seed), not the Supabase CLI.
+[db.migrations]
+enabled = false
+
+[db.seed]
+enabled = false
+
+[studio]
+enabled = true
+port = 54334
+api_url = "http://127.0.0.1"
+
+# Mailpit: catches the app's SMTP mail (SMTP_URL) and serves the web UI and API the tests read.
+[inbucket]
+enabled = true
+port = 54332
+smtp_port = 54331
+pop3_port = 54338
+
+[auth]
+enabled = false
+
+[storage]
+enabled = false
+
+[realtime]
+enabled = false
+
+[edge_runtime]
+enabled = false
+
+[analytics]
+enabled = false
+port = 54337
