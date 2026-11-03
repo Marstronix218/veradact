@@ -58,7 +58,7 @@ function HeadText({ head, label }: { head: ViewHead; label: string }) {
         `${label}: no events recorded yet.`
       ) : (
         <>
-          {label}: seq {head.seq} · <span className="font-mono">{head.hash}</span>
+          {label}: seq {head.seq} · <span className="rounded bg-zinc-100 px-1 py-0.5 font-mono text-zinc-700">{head.hash}</span>
         </>
       )}
     </p>

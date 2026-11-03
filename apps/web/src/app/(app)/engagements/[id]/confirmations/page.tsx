@@ -108,7 +108,7 @@ export default async function ConfirmationsPage({ params, searchParams }: { para
                           · {KIND_LABELS[item.kind]} · v{item.currentVersion}
                         </span>
                       </label>
-                      <Badge tone={STATUS_TONES[item.status]}>{STATUS_LABELS[item.status]}</Badge>
+                      <Badge dot tone={STATUS_TONES[item.status]}>{STATUS_LABELS[item.status]}</Badge>
                     </li>
                   ))}
                 </ul>
@@ -228,7 +228,7 @@ function RequestCard({ request: r, engagement: e, requestedBy }: { request: Conf
   const openContacts = r.contacts.filter((c) => c.linkStatus !== "revoked");
   const date = (d: Date | null) => (d ? formatShortDate(d, tz) : "—");
   return (
-    <section className="space-y-4 rounded-lg border border-zinc-200 bg-white p-5" data-testid="confirmation-request" aria-label={`Request sent ${formatDateTime(r.recordedAt, tz)}`}>
+    <section className="space-y-4 rounded-xl border border-zinc-200/80 bg-white p-5" data-testid="confirmation-request" aria-label={`Request sent ${formatDateTime(r.recordedAt, tz)}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-sm font-semibold text-zinc-900">
@@ -268,7 +268,7 @@ function RequestCard({ request: r, engagement: e, requestedBy }: { request: Conf
               </Td>
               <Td className="whitespace-nowrap">v{i.version}</Td>
               <Td className="whitespace-nowrap">
-                <Badge tone={STATUS_TONES[i.currentStatus]}>{STATUS_LABELS[i.currentStatus]}</Badge>
+                <Badge dot tone={STATUS_TONES[i.currentStatus]}>{STATUS_LABELS[i.currentStatus]}</Badge>
                 {i.changedSinceRequest ? (
                   <span className="ml-2 text-xs text-zinc-500">
                     {i.lifecycle === "active" ? `updated since this request (now v${i.currentVersion})` : i.lifecycle}

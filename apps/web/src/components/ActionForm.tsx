@@ -18,6 +18,7 @@ export function ActionForm({
 }: {
   action: (state: FormState, formData: FormData) => Promise<FormState>;
   children: ReactNode;
+  /** Layout of the fields (applied to the fieldset that wraps them, below the result message). */
   className?: string;
   /** Asks for confirmation before submitting (destructive actions). */
   confirmMessage?: string;
@@ -44,13 +45,14 @@ export function ActionForm({
         }
       : undefined;
   return (
-    <form action={formAction} onSubmit={onSubmit} className={className}>
+    <form action={formAction} onSubmit={onSubmit}>
       {state.message ? (
         <div className="mb-4">
           <Notice tone={state.status === "error" ? "error" : "success"}>{state.message}</Notice>
         </div>
       ) : null}
-      <fieldset disabled={pending} className="contents">
+      {/* Layout classes go on the fieldset: `space-y-*` on the form would only space the fieldset itself. */}
+      <fieldset disabled={pending} className={`min-w-0 ${className}`}>
         {children}
       </fieldset>
     </form>

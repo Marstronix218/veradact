@@ -1,7 +1,18 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { listItems, type ItemListFilters, type ItemLifecycle, type ItemStatus, type Kind } from "@veradact/core";
-import { Badge, Button, buttonClasses, EmptyState, Select, Table, TBody, Td, Th, THead, Tr } from "@/components";
+import {
+  getEngagementSummary,
+  listItems,
+  verifyEngagementChain,
+  type ChainVerification,
+  type EngagementSummary,
+  type ItemListFilters,
+  type ItemLifecycle,
+  type ItemStatus,
+  type Kind,
+} from "@veradact/core";
+import { Badge, Button, buttonClasses, ChainSeal, ConfirmationBar, EmptyState, Select, STATUS_FILL, Table, TBody, Td, Th, THead, Tr } from "@/components";
+import { KindChip } from "@/components/KindChip";
 import { requireEngagement } from "@/lib/engagement";
 import { formatDate } from "@/lib/format";
 import { enumValue, KIND_LABELS, LIFECYCLE_LABELS, STATUS_LABELS, STATUS_TONES } from "@/lib/labels";
@@ -28,12 +39,20 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
     ...(lifecycle ? { lifecycle } : {}),
     ...(needsReview ? { needsReview: true } : {}),
   };
-  const items = await withAuthTenant((tx) => listItems(tx, e.id, filters));
+  const { items, summary, verification } = await withAuthTenant(async (tx) => {
+    const [items, summary, verification] = await Promise.all([listItems(tx, e.id, filters), getEngagementSummary(tx, e.id), verifyEngagementChain(tx, e.id)]);
+    return { items, summary, verification };
+  });
   const base = `/engagements/${e.id}`;
   const filtered = Boolean(kind || status || needsReview || lifecycleParam !== "active");
 
   return (
     <div className="space-y-4">
+      {summary && summary.items.active > 0 ? (
+        <LedgerSummary items={summary.items} base={base} verification={verification} />
+      ) : verification.ok ? null : (
+        <ChainSeal verification={verification} href={`${base}/export`} />
+      )}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <form method="get" className="flex flex-wrap items-end gap-3" aria-label="Filter items">
           <div className="w-40">
@@ -121,7 +140,9 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
                     {item.shortId}
                   </Link>
                 </Td>
-                <Td className="whitespace-nowrap text-zinc-600">{KIND_LABELS[item.kind]}</Td>
+                <Td>
+                  <KindChip kind={item.kind} />
+                </Td>
                 <Td className="max-w-xl">
                   <Link href={`${base}/items/${item.shortId}`} className="line-clamp-2 hover:underline">
                     {item.statement}
@@ -129,9 +150,9 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
                   {item.lifecycle !== "active" ? <span className="mt-1 block text-xs text-zinc-500">{LIFECYCLE_LABELS[item.lifecycle]}</span> : null}
                 </Td>
                 <Td>
-                  <Badge tone={STATUS_TONES[item.status]}>{STATUS_LABELS[item.status]}</Badge>
+                  <Badge dot tone={STATUS_TONES[item.status]}>{STATUS_LABELS[item.status]}</Badge>
                 </Td>
-                <Td className="text-zinc-600">v{item.currentVersion}</Td>
+                <Td className="tabular-nums text-zinc-600">v{item.currentVersion}</Td>
                 <Td>{item.needsReview ? <Badge tone="yellow">Needs review</Badge> : null}</Td>
                 <Td className="whitespace-nowrap text-zinc-600">{formatDate(item.updatedAt, e.timeZone)}</Td>
               </Tr>
@@ -140,5 +161,47 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
         </Table>
       )}
     </div>
+  );
+}
+
+const LEGEND: readonly ItemStatus[] = ["confirmed", "pending", "disputed"];
+
+/** How much of the ledger the client has confirmed, plus the live chain check. Counts active items only. */
+function LedgerSummary({ items, base, verification }: { items: EngagementSummary["items"]; base: string; verification: ChainVerification }) {
+  // Rounded down: 199 of 200 must not read as 100% agreed.
+  const confirmedShare = Math.floor((items.byStatus.confirmed / items.active) * 100);
+  return (
+    <section aria-label="Confirmation summary" className="rounded-xl border border-zinc-200/80 bg-white p-5 shadow-xs">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <p className="flex flex-wrap items-baseline gap-x-2">
+            <span className="font-display text-4xl font-semibold tabular-nums text-ink-950">{confirmedShare}%</span>
+            <span className="text-sm text-zinc-600">
+              confirmed · {items.byStatus.confirmed} of {items.active} active {items.active === 1 ? "item" : "items"}
+            </span>
+          </p>
+          <ConfirmationBar counts={items.byStatus} className="mt-3 h-2.5 max-w-2xl" />
+          <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm">
+            {LEGEND.map((status) => (
+              <li key={status}>
+                <Link href={`${base}?status=${status}`} className="inline-flex items-center gap-1.5 text-zinc-700 hover:text-zinc-950 hover:underline">
+                  <span aria-hidden="true" className={`size-2 rounded-full ${STATUS_FILL[status]}`} />
+                  <span className="font-semibold tabular-nums">{items.byStatus[status]}</span> {status}
+                </Link>
+              </li>
+            ))}
+            {items.needsReview > 0 ? (
+              <li>
+                <Link href={`${base}?review=1`} className="inline-flex items-center gap-1.5 text-amber-800 hover:text-amber-950 hover:underline">
+                  <span aria-hidden="true" className="size-2 rotate-45 bg-amber-500" />
+                  <span className="font-semibold tabular-nums">{items.needsReview}</span> {items.needsReview === 1 ? "needs" : "need"} review
+                </Link>
+              </li>
+            ) : null}
+          </ul>
+        </div>
+        <ChainSeal verification={verification} href={`${base}/export`} />
+      </div>
+    </section>
   );
 }

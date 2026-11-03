@@ -1,7 +1,7 @@
 import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
 
 const FIELD =
-  "block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-xs placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200 disabled:bg-zinc-50 disabled:text-zinc-500";
+  "block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-xs placeholder:text-zinc-400 focus:border-ink-500 focus:outline-none focus:ring-2 focus:ring-ink-100 disabled:bg-zinc-50 disabled:text-zinc-500";
 
 interface FieldProps {
   label?: ReactNode;
@@ -57,7 +57,7 @@ export function Checkbox({ label, hint, id, name, className = "", ...props }: Ch
         id={inputId}
         name={name}
         type="checkbox"
-        className={`mt-0.5 size-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-500 disabled:opacity-60 ${className}`}
+        className={`mt-0.5 size-4 rounded border-zinc-300 text-ink-900 accent-ink-900 focus:ring-ink-500 disabled:opacity-60 ${className}`}
         {...props}
       />
       <div>

@@ -3,10 +3,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getItemDetail, listItems, listSources, type ItemRef, type SpanDetail, type VersionDetail } from "@veradact/core";
 import { ActionForm, Badge, Button, buttonClasses, Card, Checkbox, Notice, Select, Table, TBody, Td, Textarea, Tr } from "@/components";
+import { KindChip } from "@/components/KindChip";
 import { requireEngagement, type EngagementView } from "@/lib/engagement";
 import { formatDate, formatDateTime } from "@/lib/format";
 import {
-  KIND_LABELS,
   LIFECYCLE_LABELS,
   REVISE_REASON_LABELS,
   SOURCE_TYPE_LABELS,
@@ -76,11 +76,11 @@ function SpanView({ span, segments, e }: { span: SpanDetail; segments: Segments;
 
 function VersionCard({ v, previous, current, segments, e }: { v: VersionDetail; previous: VersionDetail | undefined; current: boolean; segments: Segments; e: EngagementView }) {
   return (
-    <li className="space-y-3 rounded-lg border border-zinc-200 bg-white p-4" data-testid="version">
+    <li className="space-y-3 rounded-xl border border-zinc-200/80 bg-white p-4" data-testid="version">
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-sm font-semibold text-zinc-900">Version {v.version}</span>
-        {current ? <Badge tone="blue">Current</Badge> : null}
-        <Badge tone={STATUS_TONES[v.status]}>{STATUS_LABELS[v.status]}</Badge>
+        {current ? <Badge>Current</Badge> : null}
+        <Badge dot tone={STATUS_TONES[v.status]}>{STATUS_LABELS[v.status]}</Badge>
         {v.reasonCode ? <span className="text-xs text-zinc-500">Revised: {REVISE_REASON_LABELS[v.reasonCode]}</span> : null}
         <span className="text-xs text-zinc-500">Recorded {formatDateTime(v.recordedAt, e.timeZone)}</span>
       </div>
@@ -145,7 +145,7 @@ function RefTable({ title, refs, e, removeFor }: { title: string; refs: (ItemRef
                 </Td>
                 <Td className="text-zinc-700">{r.statement}</Td>
                 <Td>
-                  <Badge tone={STATUS_TONES[r.status]}>{STATUS_LABELS[r.status]}</Badge>
+                  <Badge dot tone={STATUS_TONES[r.status]}>{STATUS_LABELS[r.status]}</Badge>
                   {r.lifecycle !== "active" ? <span className="ml-1 text-xs text-zinc-500">{LIFECYCLE_LABELS[r.lifecycle]}</span> : null}
                 </Td>
                 {removeFor ? (
@@ -211,13 +211,13 @@ export default async function ItemPage({ params, searchParams }: { params: Promi
           <span className="font-mono text-sm font-semibold text-zinc-900" data-testid="item-short-id">
             {item.shortId}
           </span>
-          <Badge>{KIND_LABELS[item.kind]}</Badge>
-          <Badge tone={STATUS_TONES[item.status]}>{STATUS_LABELS[item.status]}</Badge>
+          <KindChip kind={item.kind} />
+          <Badge dot tone={STATUS_TONES[item.status]}>{STATUS_LABELS[item.status]}</Badge>
           {isActive ? null : <Badge tone="neutral">{LIFECYCLE_LABELS[item.lifecycle]}</Badge>}
           {item.needsReview ? <Badge tone="yellow">Needs review</Badge> : null}
           <span className="text-xs text-zinc-500">v{item.currentVersion}</span>
         </div>
-        <p className="text-lg text-zinc-900" data-testid="item-statement">
+        <p className="font-display text-xl leading-snug text-ink-950" data-testid="item-statement">
           {current.statement}
         </p>
         {item.kind === "decision" || item.kind === "requirement" ? (

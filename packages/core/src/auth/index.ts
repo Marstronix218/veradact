@@ -7,9 +7,18 @@ export {
   verifyMagicLink,
   type RequestMagicLinkInput,
   type RequestMagicLinkResult,
-  type VerifiedLogin,
   type VerifyMagicLinkResult,
 } from "./magic-link";
+export {
+  DEMO_LOGIN_RATE_LIMITS,
+  DEMO_ORG_SLUG,
+  DEMO_PASSWORD_MIN_LENGTH,
+  demoLoginPassword,
+  isDemoAddress,
+  isDemoLoginEnabled,
+  loginWithDemoPassword,
+  type DemoLoginResult,
+} from "./demo-login";
 export {
   createSession,
   logout,
@@ -18,6 +27,7 @@ export {
   SESSION_TTL_MS,
   type NewSession,
   type SessionAuth,
+  type VerifiedLogin,
 } from "./session";
 export {
   completeSignup,

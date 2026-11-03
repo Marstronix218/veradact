@@ -4,7 +4,7 @@ import { loadOrgMetrics } from "@veradact/core";
 import { Badge, buttonClasses, EmptyState, PageHeader, Table, TBody, Td, Th, THead, Tr } from "@/components";
 import { clock } from "@/lib/clock";
 import { withAuthTenant } from "@/lib/session";
-import { BandBadge, hours, MetricTiles, percent, RateCard, RateValue } from "./metric-blocks";
+import { BandBadge, hours, MetricTiles, percent, RateCard, RateMeter, RateValue } from "./metric-blocks";
 
 export const metadata: Metadata = { title: "Metrics" };
 
@@ -33,7 +33,7 @@ export default async function MetricsPage() {
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-lg font-semibold">By engagement</h2>
+            <h2 className="font-display text-2xl font-semibold text-ink-950">By engagement</h2>
             <Table>
               <THead>
                 <Tr>
@@ -63,7 +63,8 @@ export default async function MetricsPage() {
                       ) : null}
                     </Td>
                     <Td className="whitespace-nowrap">
-                      <RateValue m={m} className="font-semibold" /> <BandBadge band={m.rateBand} />
+                      <RateValue m={m} className="font-semibold tabular-nums" /> <BandBadge band={m.rateBand} />
+                      <RateMeter m={m} compact className="mt-2 w-28" />
                     </Td>
                     <Td className="whitespace-nowrap">
                       {m.versionsMatured} / {m.versionsMaturing} / {m.versionsPulled}

@@ -11,8 +11,14 @@ import { requireAdmin as coreRequireAdmin, resolveSession, type SessionAuth } fr
 import { withTenant, type Tx } from "@veradact/db";
 import { clock } from "./clock";
 import { getDb } from "./db";
+import { appUrl } from "./env";
 
 export const SESSION_COOKIE = "vd_session";
+
+/** Attributes of the session cookie. `Secure` follows APP_URL's scheme, not a client-controllable X-Forwarded-Proto. */
+export function sessionCookieOptions(expires: Date) {
+  return { httpOnly: true, sameSite: "lax" as const, secure: new URL(appUrl()).protocol === "https:", path: "/", expires };
+}
 
 /** The signed-in user's session, or null. Resolved once per request. */
 export const getAuth = cache(async (): Promise<SessionAuth | null> => {

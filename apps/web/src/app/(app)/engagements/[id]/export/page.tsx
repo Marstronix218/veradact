@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ValidationError, verifyEngagementChain, type ChainFailureReason } from "@veradact/core";
 import { loadSpec, parseAsOf } from "@veradact/export/server";
 import { Badge, Button, buttonClasses, Card, Input, Notice } from "@/components";
+import { ShieldAlertIcon, ShieldCheckIcon } from "@/components/icons";
 import { clock } from "@/lib/clock";
 import { localDateString } from "@/lib/dates";
 import { requireEngagement } from "@/lib/engagement";
@@ -55,32 +56,40 @@ export default async function ExportPage({ params, searchParams }: { params: Pro
         description="The record is the artifact for scope disputes: the agreed items, every confirmation and dispute, and the full hash-chained event log with the verification result below. Client confirmation receipts carry the same head hash, so a history rewritten after a receipt was sent would not match it."
       >
         <div className="space-y-4">
-          <div className="space-y-1 rounded-md border border-zinc-200 bg-zinc-50 p-4 text-sm" data-testid="chain-status">
-            {verification.ok ? (
-              <p className="flex flex-wrap items-center gap-2">
-                <Badge tone="green">Verified</Badge>
-                <span className="text-zinc-800">
-                  Hash chain OK: all {verification.checked} events were re-hashed from the stored rows and each links to the event before it.
-                </span>
-              </p>
-            ) : (
-              <>
+          <div
+            className={`flex gap-4 rounded-xl p-4 text-sm ring-1 ring-inset ${verification.ok ? "bg-green-50/50 ring-green-200" : "bg-red-50/70 ring-red-200"}`}
+            data-testid="chain-status"
+          >
+            <div className={`flex size-11 shrink-0 items-center justify-center rounded-full bg-white ring-1 ${verification.ok ? "text-green-700 ring-green-200" : "text-red-700 ring-red-200"}`}>
+              {verification.ok ? <ShieldCheckIcon className="size-6" /> : <ShieldAlertIcon className="size-6" />}
+            </div>
+            <div className="min-w-0 space-y-1">
+              {verification.ok ? (
                 <p className="flex flex-wrap items-center gap-2">
-                  <Badge tone="red">Verification FAILED</Badge>
-                  <span className="text-red-800">
-                    {verification.reason ? CHAIN_FAILURE[verification.reason] : "the chain does not verify"}
-                    {verification.firstBadSeq !== undefined ? ` (first bad seq ${verification.firstBadSeq})` : ""}.
+                  <Badge tone="green">Verified</Badge>
+                  <span className="text-zinc-800">
+                    Hash chain OK: all {verification.checked} events were re-hashed from the stored rows and each links to the event before it.
                   </span>
                 </p>
-                <p className="text-zinc-700">
-                  {verification.headSeq > 0 ? `Events 1–${verification.headSeq} verified; ` : "No events verified; "}
-                  later entries must not be relied on. The record still downloads and states the failure.
-                </p>
-              </>
-            )}
-            <p className="break-all text-xs text-zinc-500">
-              {verification.ok ? "Head" : "Last verified event"}: seq {verification.headSeq} · <span className="font-mono">{verification.headHash}</span>
-            </p>
+              ) : (
+                <>
+                  <p className="flex flex-wrap items-center gap-2">
+                    <Badge tone="red">Verification FAILED</Badge>
+                    <span className="text-red-800">
+                      {verification.reason ? CHAIN_FAILURE[verification.reason] : "the chain does not verify"}
+                      {verification.firstBadSeq !== undefined ? ` (first bad seq ${verification.firstBadSeq})` : ""}.
+                    </span>
+                  </p>
+                  <p className="text-zinc-700">
+                    {verification.headSeq > 0 ? `Events 1–${verification.headSeq} verified; ` : "No events verified; "}
+                    later entries must not be relied on. The record still downloads and states the failure.
+                  </p>
+                </>
+              )}
+              <p className="break-all text-xs text-zinc-500">
+                {verification.ok ? "Head" : "Last verified event"}: seq {verification.headSeq} · <span className="font-mono text-zinc-700">{verification.headHash}</span>
+              </p>
+            </div>
           </div>
           <div className="flex flex-wrap gap-2">
             <a href={`${api}/record.md`} className={buttonClasses()} download>

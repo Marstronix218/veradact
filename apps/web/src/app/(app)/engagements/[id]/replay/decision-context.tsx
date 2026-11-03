@@ -44,14 +44,14 @@ export function DecisionContextSection({ context, versions, ctx }: { context: De
           </p>
         ) : null}
         <p className="break-all text-xs text-zinc-500" data-testid="replay-head">
-          Log head at that moment: seq {known.head.seq} · <span className="font-mono">{known.head.hash}</span>
+          Log head at that moment: seq {known.head.seq} · <span className="rounded bg-zinc-100 px-1 py-0.5 font-mono text-zinc-700">{known.head.hash}</span>
         </p>
       </div>
 
       <Card title="The item at that moment">
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge tone={STATUS_TONES[item.status]}>{STATUS_LABELS[item.status]}</Badge>
+            <Badge dot tone={STATUS_TONES[item.status]}>{STATUS_LABELS[item.status]}</Badge>
             {item.lifecycle !== "active" ? <Badge>{LIFECYCLE_LABELS[item.lifecycle]}</Badge> : null}
             {item.needsReview ? <Badge tone="yellow">Needs review</Badge> : null}
             <span className="font-mono text-xs text-zinc-500" title={item.current.contentHash}>
@@ -87,7 +87,7 @@ export function DecisionContextSection({ context, versions, ctx }: { context: De
                   <Td className="max-w-xl align-top">{d.statement ?? ""}</Td>
                   <Td className="align-top text-zinc-600">{d.version !== null ? `v${d.version}` : ""}</Td>
                   <Td className="space-x-1 align-top">
-                    {d.status ? <Badge tone={STATUS_TONES[d.status]}>{STATUS_LABELS[d.status]}</Badge> : null}
+                    {d.status ? <Badge dot tone={STATUS_TONES[d.status]}>{STATUS_LABELS[d.status]}</Badge> : null}
                     {d.lifecycle && d.lifecycle !== "active" ? <Badge>{LIFECYCLE_LABELS[d.lifecycle]}</Badge> : null}
                     {d.needsReview ? <Badge tone="yellow">Needs review</Badge> : null}
                   </Td>

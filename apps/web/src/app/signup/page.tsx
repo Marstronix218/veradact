@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { isSignupEnabled } from "@veradact/core";
-import { ActionForm, Button, Card, Input, Notice } from "@/components";
+import { ActionForm, Button, Card, Input, Notice, Wordmark } from "@/components";
 import { getAuth } from "@/lib/session";
 import { requestSignupLink } from "./actions";
 
@@ -19,7 +19,10 @@ export default async function SignupPage({ searchParams }: { searchParams: Promi
 
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-4 py-12">
-      <p className="mb-6 text-center text-lg font-semibold tracking-tight">Veradact</p>
+      <div className="mb-8 text-center">
+        <Wordmark size="lg" />
+        <p className="mt-2 text-sm text-zinc-600">Proof of what your client agreed to.</p>
+      </div>
       {isSignupEnabled() ? (
         <Card
           title="Create an account"

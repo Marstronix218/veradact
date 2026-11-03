@@ -42,7 +42,7 @@ export default async function NotificationsPage() {
       {notifications.length === 0 ? (
         <EmptyState title="No notifications" description="You'll see a notification here when a client disputes an item or declines authorization." />
       ) : (
-        <ul className="divide-y divide-zinc-100 rounded-lg border border-zinc-200 bg-white" data-testid="notifications">
+        <ul className="divide-y divide-zinc-100 rounded-xl border border-zinc-200/80 bg-white" data-testid="notifications">
           {notifications.map((n) => {
             const link = target(n);
             return (

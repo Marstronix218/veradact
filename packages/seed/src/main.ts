@@ -61,6 +61,9 @@ function printResult(r: SeedDemoResult): void {
       `  ${r.users.member.email}   ${r.users.member.name} (member)`,
       `  Log in: open ${web}/login, enter one of these emails, then open the magic link`,
       `  that arrives in Mailpit at ${MAILPIT_URL}.`,
+      process.env.DEMO_LOGIN_PASSWORD?.trim()
+        ? "  Or use the Demo account form on that page with the password in DEMO_LOGIN_PASSWORD."
+        : "  Set DEMO_LOGIN_PASSWORD in .env to sign in with a password instead (D-064).",
       "",
       `Engagement ${r.engagement.shortCode} · ${DEMO_ENGAGEMENT.name}`,
       `  items      ${s.total} (24 fixture entries; k19 is version 2 of k18)`,

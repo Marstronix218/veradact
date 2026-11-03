@@ -11,7 +11,7 @@ import { getEmailProvider } from "@/lib/email";
 import { appUrl } from "@/lib/env";
 import type { FormState } from "@/lib/form-state";
 import { requestInfo } from "@/lib/request";
-import { SESSION_COOKIE } from "@/lib/session";
+import { SESSION_COOKIE, sessionCookieOptions } from "@/lib/session";
 
 const CHECK_EMAIL =
   "Check your email. We've sent a link to finish creating your account. It expires in 30 minutes.";
@@ -62,14 +62,7 @@ export async function finishSignup(_prev: FormState, formData: FormData): Promis
       case "rate_limited":
         throw new RateLimitedError(result.retryAfterSeconds, "Too many attempts. Try again in a few minutes.");
       case "ok":
-        (await cookies()).set(SESSION_COOKIE, result.sessionToken, {
-          httpOnly: true,
-          sameSite: "lax",
-          // From the configured public URL, not from a client-controllable X-Forwarded-Proto.
-          secure: new URL(appUrl()).protocol === "https:",
-          path: "/",
-          expires: result.expiresAt,
-        });
+        (await cookies()).set(SESSION_COOKIE, result.sessionToken, sessionCookieOptions(result.expiresAt));
         redirect("/engagements");
     }
   });

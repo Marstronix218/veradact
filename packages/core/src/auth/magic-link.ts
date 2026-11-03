@@ -5,16 +5,13 @@
 // rate-limit buckets are charged) and return the same result. The user lookup, the token insert
 // and the email all run in one task; pass `defer` (Next's `after`) so that task runs after the
 // response and neither database nor SMTP latency can reveal whether the address has an account.
-import { appUser, authConsumeLoginToken, authFindUserByEmail, loginToken, withTenant, type Db } from "@veradact/db";
-import { eq } from "drizzle-orm";
+import { authConsumeLoginToken, authFindUserByEmail, loginToken, withTenant, type Db } from "@veradact/db";
 import type { EmailProvider } from "@veradact/email";
-import { writeAudit } from "../audit";
 import { log, logError, logId } from "../log";
 import { checkRateLimit } from "../security/rate-limit";
 import { hashToken, isRandomTokenShape, randomToken } from "../security/tokens";
-import type { AuthContext } from "./context";
 import { normalizeEmail } from "./email-address";
-import { createSession, type SessionAuth } from "./session";
+import { openSession, type VerifiedLogin } from "./session";
 
 export const LOGIN_TOKEN_TTL_MS = 15 * 60 * 1000;
 
@@ -105,14 +102,6 @@ export async function requestMagicLink(input: RequestMagicLinkInput): Promise<Re
   return { status: "accepted" };
 }
 
-export interface VerifiedLogin {
-  /** Raw session token for the cookie. Never stored or logged. */
-  sessionToken: string;
-  expiresAt: Date;
-  session: SessionAuth;
-  user: { id: string; email: string; name: string } & Pick<AuthContext, "role">;
-}
-
 export type VerifyMagicLinkResult =
   | ({ status: "ok" } & VerifiedLogin)
   | { status: "invalid" }
@@ -143,34 +132,6 @@ export async function verifyMagicLink(input: {
   const consumed = await authConsumeLoginToken(db, hashToken(token));
   if (!consumed) return { status: "invalid" };
 
-  return withTenant(db, { orgId: consumed.orgId, userId: consumed.userId }, async (tx) => {
-    const [user] = await tx
-      .select({ id: appUser.id, email: appUser.email, name: appUser.name, role: appUser.role })
-      .from(appUser)
-      .where(eq(appUser.id, consumed.userId));
-    if (!user) throw new Error("verifyMagicLink: consumed token has no user");
-    const created = await createSession(tx, { orgId: consumed.orgId, userId: user.id, now });
-    await writeAudit(tx, {
-      orgId: consumed.orgId,
-      actorUserId: user.id,
-      action: "auth.login",
-      targetType: "session",
-      targetId: created.sessionId,
-      metadata: { method: "magic_link" },
-      at: now,
-    });
-    return {
-      status: "ok",
-      sessionToken: created.token,
-      expiresAt: created.expiresAt,
-      session: {
-        sessionId: created.sessionId,
-        orgId: consumed.orgId,
-        userId: user.id,
-        role: user.role,
-        expiresAt: created.expiresAt,
-      },
-      user,
-    } as const;
-  });
+  const login = await openSession(db, { orgId: consumed.orgId, userId: consumed.userId }, now, "magic_link");
+  return { status: "ok", ...login };
 }

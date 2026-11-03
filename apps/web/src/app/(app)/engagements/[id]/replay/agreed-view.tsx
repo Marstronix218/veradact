@@ -114,7 +114,7 @@ export function AgreedSection({ view, ctx }: { view: AgreedView; ctx: ReplayCont
                   <Td className="max-w-md align-top">
                     <p>{item.currentStatement}</p>
                     <p className="mt-0.5 text-xs text-zinc-500">
-                      v{item.currentVersion} <Badge tone={STATUS_TONES[item.currentStatus]}>{STATUS_LABELS[item.currentStatus]}</Badge>
+                      v{item.currentVersion} <Badge dot tone={STATUS_TONES[item.currentStatus]}>{STATUS_LABELS[item.currentStatus]}</Badge>
                     </p>
                   </Td>
                 </Tr>

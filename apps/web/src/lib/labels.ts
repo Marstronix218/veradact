@@ -20,7 +20,8 @@ export const KIND_LABELS: Record<Kind, string> = {
 };
 
 export const STATUS_LABELS: Record<ItemStatus, string> = { pending: "Pending", confirmed: "Confirmed", disputed: "Disputed" };
-export const STATUS_TONES: Record<ItemStatus, BadgeTone> = { pending: "yellow", confirmed: "green", disputed: "red" };
+// Pending is blue (waiting on the client, nothing to fix); amber is kept for "needs review".
+export const STATUS_TONES: Record<ItemStatus, BadgeTone> = { pending: "blue", confirmed: "green", disputed: "red" };
 
 export const LIFECYCLE_LABELS: Record<ItemLifecycle, string> = { active: "Active", superseded: "Superseded", withdrawn: "Withdrawn" };
 

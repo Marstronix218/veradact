@@ -36,7 +36,7 @@ export default async function EngagementSettingsPage({ params }: { params: Promi
       <Card
         title={
           <span className="flex items-center gap-2">
-            AI suggestions {e.aiEnabled ? <Badge tone="blue">On</Badge> : <Badge>Off</Badge>}
+            AI suggestions {e.aiEnabled ? <Badge tone="violet">On</Badge> : <Badge>Off</Badge>}
           </span>
         }
         description="When AI is off, no source text from this engagement is sent to any model provider: members enter items manually, and spec exports and the MCP server omit quotes. Changes are recorded in the audit log."

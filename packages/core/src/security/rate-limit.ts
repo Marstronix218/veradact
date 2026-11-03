@@ -18,7 +18,8 @@ export type RateLimitScope =
   | "user_invite_org"
   | "signup_ip"
   | "signup_email"
-  | "signup_complete_ip";
+  | "signup_complete_ip"
+  | "demo_login_ip";
 
 export interface RateLimitInput {
   scope: RateLimitScope;

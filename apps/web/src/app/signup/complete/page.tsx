@@ -9,7 +9,7 @@ import {
   ORG_NAME_MAX_LENGTH,
   SIGNUP_USER_NAME_MAX_LENGTH,
 } from "@veradact/core";
-import { ActionForm, Button, Card, Input } from "@/components";
+import { ActionForm, Button, Card, Input, Wordmark } from "@/components";
 import { clock } from "@/lib/clock";
 import { getAuth } from "@/lib/session";
 import { finishSignup } from "../actions";
@@ -28,7 +28,10 @@ export default async function SignupCompletePage({ searchParams }: { searchParam
 
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-4 py-12">
-      <p className="mb-6 text-center text-lg font-semibold tracking-tight">Veradact</p>
+      <div className="mb-8 text-center">
+        <Wordmark size="lg" />
+        <p className="mt-2 text-sm text-zinc-600">Proof of what your client agreed to.</p>
+      </div>
       <Card title="Finish creating your account" description={`You'll be the admin of the new organization as ${email}.`}>
         <ActionForm action={finishSignup} className="space-y-4" preserveValues>
           <input type="hidden" name="token" value={token} />

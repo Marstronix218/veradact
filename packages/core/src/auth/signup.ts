@@ -18,8 +18,7 @@ import { ValidationError } from "../errors";
 import { log, logError, logId } from "../log";
 import { checkRateLimit } from "../security/rate-limit";
 import { normalizeEmail } from "./email-address";
-import type { VerifiedLogin } from "./magic-link";
-import { createSession } from "./session";
+import { createSession, type VerifiedLogin } from "./session";
 
 export const SIGNUP_TOKEN_TTL_MS = 30 * 60 * 1000;
 export const ORG_NAME_MAX_LENGTH = 200;

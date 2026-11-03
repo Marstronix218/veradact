@@ -32,6 +32,7 @@ import {
   createEngagement,
   createItem,
   currentVersionOf,
+  DEMO_ORG_SLUG,
   ingestSource,
   insertNotifications,
   loadState,
@@ -57,7 +58,8 @@ import {
 } from "@veradact/core";
 import { loadSeedFixtures, type FixtureItem, type FixtureSource } from "./fixtures";
 
-export const DEMO_SLUG = "quillfield";
+/** Also the only org demo password sign-in accepts (core `DEMO_ORG_SLUG`, D-064). */
+export const DEMO_SLUG = DEMO_ORG_SLUG;
 export const DEMO_ORG_NAME = "Quillfield Labs";
 export const DEMO_ENGAGEMENT = {
   name: "Halvorsen Freight — AI dispatch routing",

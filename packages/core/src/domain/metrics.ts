@@ -124,11 +124,16 @@ export interface OrgMetrics extends MetricsSummary {
   engagementCount: number;
 }
 
+/** The 5-business-day confirmation rate at or above which a pilot is on target. */
+export const RATE_TARGET = 0.5;
+/** Below this rate the pilot shows the kill signal. */
+export const RATE_KILL = 0.25;
+
 /** Bands for the 5-business-day confirmation rate: ≥ 50% on target, 25–50% watch, < 25% kill. */
 export function rateBand(rate: number | null): RateBand {
   if (rate === null) return "insufficient_data";
-  if (rate >= 0.5) return "on_target";
-  if (rate >= 0.25) return "watch";
+  if (rate >= RATE_TARGET) return "on_target";
+  if (rate >= RATE_KILL) return "watch";
   return "kill_signal";
 }
 

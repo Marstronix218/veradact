@@ -22,7 +22,7 @@ function DiffSection({ title, count, testId, children }: { title: string; count:
       <h3 className="text-sm font-semibold text-zinc-900">
         {title} <span className="font-normal text-zinc-500">({count})</span>
       </h3>
-      {count === 0 ? <p className="text-sm text-zinc-500">None.</p> : <ul className="divide-y divide-zinc-100 rounded-lg border border-zinc-200 bg-white">{children}</ul>}
+      {count === 0 ? <p className="text-sm text-zinc-500">None.</p> : <ul className="divide-y divide-zinc-100 rounded-xl border border-zinc-200/80 bg-white">{children}</ul>}
     </section>
   );
 }
@@ -52,7 +52,7 @@ export function CompareSections({ diff, ctx }: { diff: ReplayDiff; ctx: ReplayCo
             <div className="flex flex-wrap items-center gap-2">
               <ItemLink shortId={a.shortId} ctx={ctx} />
               <span className="text-xs text-zinc-500">{KIND_LABELS[a.kind]}</span>
-              <Badge tone={STATUS_TONES[a.status]}>{STATUS_LABELS[a.status]}</Badge>
+              <Badge dot tone={STATUS_TONES[a.status]}>{STATUS_LABELS[a.status]}</Badge>
               <span className="text-xs text-zinc-500">recorded {formatDateTime(a.recordedAt, ctx.timeZone)}</span>
             </div>
             <p className="text-zinc-800">{a.statement}</p>

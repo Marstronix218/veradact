@@ -1,1 +1,33 @@
 @import "tailwindcss";
+
+/*
+ * Vendor app theme (D-063). Ink is the brand colour: primary actions, focus rings, the brand mark.
+ * Status colours stay semantic (green confirmed, blue pending, red disputed, amber needs review), so
+ * ink never stands for a status. Client pages use their own stylesheet (c/static/client.css).
+ */
+@theme {
+  --color-paper: oklch(0.985 0.004 85);
+
+  --color-ink-50: oklch(0.97 0.012 260);
+  --color-ink-100: oklch(0.93 0.025 260);
+  --color-ink-200: oklch(0.87 0.045 260);
+  --color-ink-300: oklch(0.78 0.07 260);
+  --color-ink-400: oklch(0.66 0.1 261);
+  --color-ink-500: oklch(0.55 0.12 262);
+  --color-ink-600: oklch(0.47 0.12 263);
+  --color-ink-700: oklch(0.4 0.11 264);
+  --color-ink-800: oklch(0.33 0.09 265);
+  --color-ink-900: oklch(0.27 0.07 266);
+  --color-ink-950: oklch(0.2 0.05 267);
+}
+
+/* `--font-newsreader` is set by next/font in the root layout. */
+@theme inline {
+  --font-display: var(--font-newsreader), ui-serif, Georgia, "Times New Roman", serif;
+}
+
+@layer base {
+  ::selection {
+    background-color: var(--color-ink-100);
+  }
+}

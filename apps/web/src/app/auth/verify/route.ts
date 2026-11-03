@@ -9,7 +9,7 @@ import { clock } from "@/lib/clock";
 import { getDb } from "@/lib/db";
 import { appUrl } from "@/lib/env";
 import { clientIpFrom, isCrossSite, readFormData } from "@/lib/request";
-import { SESSION_COOKIE } from "@/lib/session";
+import { SESSION_COOKIE, sessionCookieOptions } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -88,14 +88,7 @@ export async function POST(request: NextRequest) {
   if (result.status !== "ok") return failure(base);
 
   const response = NextResponse.redirect(new URL("/engagements", base), 303);
-  response.cookies.set(SESSION_COOKIE, result.sessionToken, {
-    httpOnly: true,
-    sameSite: "lax",
-    // From the configured public URL, not from a client-controllable X-Forwarded-Proto.
-    secure: new URL(base).protocol === "https:",
-    path: "/",
-    expires: result.expiresAt,
-  });
+  response.cookies.set(SESSION_COOKIE, result.sessionToken, sessionCookieOptions(result.expiresAt));
   response.headers.set("Cache-Control", "no-store");
   response.headers.set("Referrer-Policy", "no-referrer");
   return response;

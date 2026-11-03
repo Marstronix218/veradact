@@ -23,16 +23,16 @@ export default async function EngagementLayout({ children, params }: { children:
     <>
       <div className="mb-6">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900" data-testid="engagement-name">
+          <h1 className="font-display text-3xl font-semibold text-ink-950" data-testid="engagement-name">
             {e.name}
           </h1>
-          <span className="font-mono text-xs text-zinc-500">{e.shortCode}</span>
+          <span className="rounded-md bg-white px-1.5 py-0.5 font-mono text-xs font-medium text-zinc-600 ring-1 ring-inset ring-zinc-200">{e.shortCode}</span>
           {e.aiActive ? (
-            <Badge tone="blue">AI on</Badge>
+            <Badge tone="violet">AI on</Badge>
           ) : (
             <Badge tone="neutral">{e.orgAiEnabled ? "AI off" : "AI off (organization)"}</Badge>
           )}
-          {e.status === "archived" ? <Badge tone="yellow">Archived</Badge> : null}
+          {e.status === "archived" ? <Badge>Archived</Badge> : null}
         </div>
         <p className="mt-1 text-sm text-zinc-600">{e.clientName}</p>
       </div>

@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { getCurrentUser, unreadCount } from "@veradact/core";
 import { withTenant } from "@veradact/db";
-import { Button } from "@/components";
+import { Button, Wordmark } from "@/components";
 import { getDb } from "@/lib/db";
 import { requireAuth } from "@/lib/session";
 import { NavLinks, type NavItem } from "./nav-links";
@@ -23,10 +23,10 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-zinc-200 bg-white">
+      <header className="z-10 border-b border-zinc-200/80 bg-white/90 backdrop-blur sm:sticky sm:top-0">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
-          <Link href="/engagements" className="text-base font-semibold tracking-tight">
-            Veradact
+          <Link href="/engagements" className="rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ink-600">
+            <Wordmark />
           </Link>
           <NavLinks items={nav} />
           <div className="ml-auto flex items-center gap-3">

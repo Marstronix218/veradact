@@ -28,7 +28,7 @@ function VersionsRecorded({ item, ctx }: { item: KnownItem; ctx: ReplayContext }
           <li key={v.version} className="space-y-1" data-testid="replay-version">
             <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-500">
               <span className="font-semibold text-zinc-800">v{v.version}</span>
-              <Badge tone={STATUS_TONES[v.status]}>{STATUS_LABELS[v.status]}</Badge>
+              <Badge dot tone={STATUS_TONES[v.status]}>{STATUS_LABELS[v.status]}</Badge>
               <span>recorded {formatDateTime(v.recordedAt, ctx.timeZone)}</span>
               {v.reasonCode ? <span>· {REVISE_REASON_LABELS[v.reasonCode]}</span> : null}
               <span className="font-mono" title={v.contentHash}>
@@ -94,7 +94,7 @@ export function KnownItemsTable({ items, ctx, emptyText }: { items: KnownItem[];
               ) : null}
             </Td>
             <Td className="align-top" data-testid="replay-status">
-              <Badge tone={STATUS_TONES[item.status]}>{STATUS_LABELS[item.status]}</Badge>
+              <Badge dot tone={STATUS_TONES[item.status]}>{STATUS_LABELS[item.status]}</Badge>
             </Td>
             <Td className="align-top text-zinc-600">v{item.currentVersion}</Td>
             <Td className="space-y-1 align-top text-xs text-zinc-600">

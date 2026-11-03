@@ -336,7 +336,7 @@ Engagement list · Engagement ledger (filter by kind, status, needs-review) · I
 
 ## 14. Security baseline
 
-- Auth: magic link (15-min single-use, consumed by a POST from the interstitial) → session cookie (`HttpOnly`, `SameSite=Lax`, `Secure` when `APP_URL` is https — never derived from request headers). Roles `admin`/`member`; admin-only: org settings, users, org AI toggle, retention, **contact erasure**.
+- Auth: magic link (15-min single-use, consumed by a POST from the interstitial) → session cookie. Optional demo password sign-in for the seeded demo org's `*.example` users, off unless `DEMO_LOGIN_PASSWORD` is set and never in production (D-064). Session cookie (`HttpOnly`, `SameSite=Lax`, `Secure` when `APP_URL` is https — never derived from request headers). Roles `admin`/`member`; admin-only: org settings, users, org AI toggle, retention, **contact erasure**.
 - Audit log actions (`core/audit.ts`, every one written by a real code path — `core/src/audit-coverage.int.test.ts`): `auth.login`, `auth.logout`, `source.ingest`, `source.redact`, `ai.toggle`, `engagement.create`, `engagement.update`, `confirmation.request`, `confirmation.revoke`, `export.spec`, `export.record_md`, `export.record_pdf`, `contact.erase`, `contact.outside_domains`, `user.invite`, `user.deactivate`, `api_token.create`, `api_token.revoke`, `settings.update`. Metadata holds ids, enums, counts and booleans only.
 - Rate limits (Postgres fixed window, `core/security/rate-limit.ts`; windows older than a day are pruned by the retention job):
 
@@ -345,6 +345,7 @@ Engagement list · Engagement ledger (filter by kind, status, needs-review) · I
   | magic-link request | client IP | 20 / 15 min | `core/auth/magic-link.ts` `MAGIC_LINK_RATE_LIMITS.perIp` |
   | magic-link request | normalized email | 5 / 15 min | `MAGIC_LINK_RATE_LIMITS.perEmail` |
   | magic-link verify (POST) | client IP | 30 / 15 min | `MAGIC_LINK_RATE_LIMITS.verifyPerIp` |
+  | demo password sign-in | client IP | 10 / 15 min | `core/auth/demo-login.ts` `DEMO_LOGIN_RATE_LIMITS.perIp` |
   | sign-up request | client IP | 10 / hour | `core/auth/signup.ts` `SIGNUP_RATE_LIMITS.perIp` |
   | sign-up request | normalized email | 3 / hour | `SIGNUP_RATE_LIMITS.perEmail` |
   | sign-up completion | client IP | 30 / 15 min | `SIGNUP_RATE_LIMITS.completePerIp` |

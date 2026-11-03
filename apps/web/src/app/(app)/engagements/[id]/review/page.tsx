@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { listCandidates, listExtractionRuns, listSources, type CandidateView, type ExtractionRunRow } from "@veradact/core";
 import { ActionForm, Badge, Button, buttonClasses, Card, EmptyState, Input, Notice, Select, Table, TBody, Td, Textarea, Th, THead, Tr } from "@/components";
+import { KindChip } from "@/components/KindChip";
 import { requireEngagement, type EngagementView } from "@/lib/engagement";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { KIND_LABELS, SOURCE_TYPE_LABELS } from "@/lib/labels";
@@ -47,9 +48,9 @@ function RunSummary({ run }: { run: ExtractionRunRow }) {
 function CandidateCard({ c, e }: { c: CandidateView; e: EngagementView }) {
   const suggested = c.suggestedDependencies.map((d) => d.ref).join(", ");
   return (
-    <li className="space-y-3 rounded-lg border border-zinc-200 bg-white p-4" data-testid="candidate">
+    <li className="space-y-3 rounded-xl border border-zinc-200/80 bg-white p-4" data-testid="candidate">
       <div className="flex flex-wrap items-center gap-2">
-        <Badge tone="blue">{KIND_LABELS[c.kind]}</Badge>
+        <KindChip kind={c.kind} />
         {c.verification === "exact" ? <Badge tone="green">Exact quote</Badge> : <Badge tone="yellow">Offset corrected</Badge>}
         {c.confidence !== null ? <span className="text-xs text-zinc-500">Confidence {Math.round(c.confidence * 100)}%</span> : null}
         <span className="font-mono text-xs text-zinc-400">#{c.ordinal}</span>
@@ -113,38 +114,40 @@ function CandidateCard({ c, e }: { c: CandidateView; e: EngagementView }) {
         </ActionForm>
         <details className="w-full">
           <summary className="cursor-pointer text-sm font-medium text-zinc-700">Edit &amp; accept</summary>
-          <ActionForm action={acceptCandidateAction} className="mt-3 space-y-3">
-            <input type="hidden" name="engagementId" value={e.id} />
-            <input type="hidden" name="candidateId" value={c.id} />
-            <input type="hidden" name="mode" value="edit" />
-            <Textarea
-              id={`statement-${c.id}`}
-              name="statement"
-              label="Statement"
-              rows={3}
-              required
-              maxLength={2000}
-              defaultValue={c.statement}
-              hint="Don't put personal data in statements: they become part of the permanent record."
-            />
-            <div className="grid gap-3 sm:grid-cols-2">
-              {c.revises ? (
-                <p className="text-sm text-zinc-600">Kind: {KIND_LABELS[c.kind]} (a revision keeps the item's kind)</p>
-              ) : (
-                <Select id={`kind-${c.id}`} name="kind" label="Kind" defaultValue={c.kind}>
-                  {Object.entries(KIND_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </Select>
-              )}
-              <Input id={`depends-${c.id}`} name="dependsOn" label="Depends on" defaultValue={suggested} placeholder="e.g. HALV-A3, #2" hint="Item ids or #n of suggestions from the same run." />
-            </div>
-            <Button type="submit" size="sm">
-              Save and accept
-            </Button>
-          </ActionForm>
+          <div className="mt-3">
+            <ActionForm action={acceptCandidateAction} className="space-y-3">
+              <input type="hidden" name="engagementId" value={e.id} />
+              <input type="hidden" name="candidateId" value={c.id} />
+              <input type="hidden" name="mode" value="edit" />
+              <Textarea
+                id={`statement-${c.id}`}
+                name="statement"
+                label="Statement"
+                rows={3}
+                required
+                maxLength={2000}
+                defaultValue={c.statement}
+                hint="Don't put personal data in statements: they become part of the permanent record."
+              />
+              <div className="grid gap-3 sm:grid-cols-2">
+                {c.revises ? (
+                  <p className="text-sm text-zinc-600">Kind: {KIND_LABELS[c.kind]} (a revision keeps the item's kind)</p>
+                ) : (
+                  <Select id={`kind-${c.id}`} name="kind" label="Kind" defaultValue={c.kind}>
+                    {Object.entries(KIND_LABELS).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+                <Input id={`depends-${c.id}`} name="dependsOn" label="Depends on" defaultValue={suggested} placeholder="e.g. HALV-A3, #2" hint="Item ids or #n of suggestions from the same run." />
+              </div>
+              <Button type="submit" size="sm">
+                Save and accept
+              </Button>
+            </ActionForm>
+          </div>
         </details>
       </div>
     </li>
