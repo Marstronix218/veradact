@@ -1,52 +1,21 @@
-// Remote MCP server (ARCHITECTURE §11, D-005): plain Node `http`, the SDK's Streamable HTTP
-// transport in stateless mode (a fresh McpServer + transport per POST), bearer API tokens, and
-// Postgres fixed-window rate limits per IP and per token. Logs carry ids, enums and counts only.
+// Remote MCP server (ARCHITECTURE §11, D-005): plain Node `http` around the shared fetch-style
+// handler (handler.ts), plus `/healthz`. The web app serves the same handler at `/mcp` (D-065).
 import { existsSync, realpathSync } from "node:fs";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import { Readable } from "node:stream";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { checkRateLimit, clientIpFromForwardedFor, log, logError, logId, resolveApiToken, trustedProxyHops } from "@veradact/core";
-import { createDb, type Db } from "@veradact/db";
-import { createVeradactMcpServer } from "./tools";
+import { clientIpFromForwardedFor, log, logError, trustedProxyHops } from "@veradact/core";
+import { createDb } from "@veradact/db";
+import { createMcpHandler, mcpErrorResponse, mcpMethodNotAllowed, type McpHandlerOptions } from "./handler";
 
-export interface RateLimits {
-  /** Requests per minute per API token (counted after authentication). */
-  perTokenPerMinute: number;
-  /** Requests per minute per client IP (counted before authentication). */
-  perIpPerMinute: number;
-}
-
-export const DEFAULT_RATE_LIMITS: RateLimits = { perTokenPerMinute: 60, perIpPerMinute: 120 };
-export const MAX_BODY_BYTES = 1024 * 1024;
-const WINDOW_SECONDS = 60;
-
-export interface McpHttpServerOptions {
-  /** App-role database (RLS enforced). */
-  db: Db;
-  clock?: () => Date;
-  rateLimits?: Partial<RateLimits>;
-  maxBodyBytes?: number;
+export interface McpHttpServerOptions extends McpHandlerOptions {
   /** Proxies in front of the server that append to X-Forwarded-For. Default: `TRUSTED_PROXY_HOPS` (1). */
   trustedProxyHops?: number;
-}
-
-const UNAUTHORIZED_MESSAGE =
-  "Unauthorized: send a Veradact API token as \"Authorization: Bearer vdt_...\". Create one in the Veradact web app under Settings → API tokens.";
-
-function sendError(res: ServerResponse, status: number, message: string, headers: Record<string, string> = {}): void {
-  res.writeHead(status, { "content-type": "application/json", "cache-control": "no-store", ...headers });
-  res.end(JSON.stringify({ jsonrpc: "2.0", error: { code: -32000, message }, id: null }));
 }
 
 function header(req: IncomingMessage, name: string): string | undefined {
   const value = req.headers[name];
   return Array.isArray(value) ? value[0] : value;
-}
-
-/** The raw bearer token, or null when the header is missing or not a bearer credential. */
-function bearerToken(req: IncomingMessage): string | null {
-  const match = /^Bearer\s+(\S+)\s*$/i.exec(header(req, "authorization") ?? "");
-  return match?.[1] ?? null;
 }
 
 /**
@@ -58,55 +27,48 @@ function clientIp(req: IncomingMessage, trustedProxyHops: number): string {
   return clientIpFromForwardedFor(header(req, "x-forwarded-for"), trustedProxyHops, req.socket.remoteAddress || "unknown");
 }
 
+/**
+ * The request body as a web stream that touches `req` only once it is read. A body the handler
+ * never reads (401, 405, 429) is then left to Node, which drains it so the keep-alive connection
+ * stays usable; an eagerly attached stream would stall it.
+ */
+function lazyBody(req: IncomingMessage): ReadableStream<Uint8Array> {
+  let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
+  return new ReadableStream<Uint8Array>(
+    {
+      async pull(controller) {
+        reader ??= (Readable.toWeb(req) as ReadableStream<Uint8Array>).getReader();
+        const { done, value } = await reader.read();
+        if (done) controller.close();
+        else controller.enqueue(value);
+      },
+      cancel: (reason) => reader?.cancel(reason),
+    },
+    { highWaterMark: 0 },
+  );
+}
+
+/** `req` as a fetch Request whose signal aborts when the connection closes. */
+function toWebRequest(req: IncomingMessage, res: ServerResponse): Request {
+  const closed = new AbortController();
+  res.once("close", () => closed.abort());
+  const headers = new Headers();
+  for (const [name, value] of Object.entries(req.headers)) {
+    for (const v of Array.isArray(value) ? value : value === undefined ? [] : [value]) headers.append(name, v);
+  }
+  const body = req.method === "GET" || req.method === "HEAD" ? null : lazyBody(req);
+  return new Request(new URL(req.url ?? "/", "http://localhost"), { method: req.method, headers, body, signal: closed.signal, duplex: "half" } as RequestInit);
+}
+
+async function send(res: ServerResponse, response: Response): Promise<void> {
+  res.writeHead(response.status, Object.fromEntries(response.headers));
+  res.end(Buffer.from(await response.arrayBuffer()));
+}
+
 /** An `http.Server` (not listening) serving `/mcp` and `/healthz`. */
 export function createMcpHttpServer(options: McpHttpServerOptions): Server {
-  const { db } = options;
-  const clock = options.clock ?? (() => new Date());
-  const limits: RateLimits = { ...DEFAULT_RATE_LIMITS, ...options.rateLimits };
-  const maxBodyBytes = options.maxBodyBytes ?? MAX_BODY_BYTES;
+  const handleMcp = createMcpHandler(options);
   const hops = options.trustedProxyHops ?? trustedProxyHops();
-
-  async function handleMcp(req: IncomingMessage, res: ServerResponse): Promise<void> {
-    const started = Date.now();
-    if (req.method !== "POST") {
-      // Stateless mode: no SSE stream to GET and no session to DELETE.
-      sendError(res, 405, "Method not allowed: this server is stateless; send JSON-RPC requests with POST.", { allow: "POST" });
-      return;
-    }
-    const ipLimit = await checkRateLimit(db, { scope: "mcp_ip", id: clientIp(req, hops), limit: limits.perIpPerMinute, windowSeconds: WINDOW_SECONDS, now: clock() });
-    if (!ipLimit.allowed) {
-      log.warn("mcp.rate_limited", { scope: "mcp_ip" as const, retryAfterSeconds: ipLimit.retryAfterSeconds });
-      sendError(res, 429, "Too many requests. Try again later.", { "retry-after": String(ipLimit.retryAfterSeconds) });
-      return;
-    }
-
-    const raw = bearerToken(req);
-    const auth = await resolveApiToken(db, raw, clock);
-    if (!auth) {
-      log.info("mcp.unauthorized", { tokenPresent: raw !== null });
-      const challenge = raw === null ? 'Bearer realm="veradact"' : 'Bearer realm="veradact", error="invalid_token"';
-      sendError(res, 401, UNAUTHORIZED_MESSAGE, { "www-authenticate": challenge });
-      return;
-    }
-    const ids = { orgId: logId(auth.orgId), apiTokenId: logId(auth.apiTokenId) };
-
-    const tokenLimit = await checkRateLimit(db, { scope: "mcp_token", id: auth.apiTokenId, limit: limits.perTokenPerMinute, windowSeconds: WINDOW_SECONDS, now: clock() });
-    if (!tokenLimit.allowed) {
-      log.warn("mcp.rate_limited", { ...ids, scope: "mcp_token" as const, retryAfterSeconds: tokenLimit.retryAfterSeconds });
-      sendError(res, 429, "Too many requests for this API token. Try again later.", { "retry-after": String(tokenLimit.retryAfterSeconds) });
-      return;
-    }
-
-    const server = createVeradactMcpServer({ db, clock, auth });
-    const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true, maxRequestBodySize: maxBodyBytes });
-    res.on("close", () => {
-      void transport.close();
-      void server.close();
-    });
-    await server.connect(transport);
-    await transport.handleRequest(req, res);
-    log.info("mcp.request", { ...ids, status: res.statusCode, durationMs: Date.now() - started });
-  }
 
   async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
     const path = new URL(req.url ?? "/", "http://localhost").pathname;
@@ -114,20 +76,25 @@ export function createMcpHttpServer(options: McpHttpServerOptions): Server {
       if (req.method === "GET" || req.method === "HEAD") {
         res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
         res.end(req.method === "HEAD" ? undefined : JSON.stringify({ ok: true }));
-      } else sendError(res, 405, "Method not allowed.", { allow: "GET, HEAD" });
+      } else await send(res, mcpErrorResponse(405, "Method not allowed.", { allow: "GET, HEAD" }));
       return;
     }
     if (path !== "/mcp") {
-      sendError(res, 404, "Not found. The MCP endpoint is /mcp.");
+      await send(res, mcpErrorResponse(404, "Not found. The MCP endpoint is /mcp."));
       return;
     }
-    await handleMcp(req, res);
+    // Checked before building a Request, which refuses methods such as TRACE.
+    if (req.method !== "POST") {
+      await send(res, mcpMethodNotAllowed());
+      return;
+    }
+    await send(res, await handleMcp(toWebRequest(req, res), clientIp(req, hops)));
   }
 
   return createServer((req, res) => {
     handle(req, res).catch((error: unknown) => {
       logError("mcp.request_failed", error);
-      if (!res.headersSent) sendError(res, 500, "Internal server error.");
+      if (!res.headersSent) void send(res, mcpErrorResponse(500, "Internal server error."));
       else res.end();
     });
   });

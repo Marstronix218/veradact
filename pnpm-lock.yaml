@@ -78,6 +78,9 @@ importers:
       '@veradact/ingest':
         specifier: workspace:*
         version: link:../../packages/ingest
+      '@veradact/mcp':
+        specifier: workspace:*
+        version: link:../mcp
       mammoth:
         specifier: ^1.13.0
         version: 1.13.0

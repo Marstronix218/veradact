@@ -67,7 +67,7 @@ test("an admin adds and deactivates a user", async ({ page }) => {
   await expect(page.getByRole("row", { name: /Deactivated user/ }).getByText("Deactivated", { exact: true })).toBeVisible();
 });
 
-test("a user creates, sees once and revokes an API token", async ({ page }) => {
+test("a user creates, sees once and revokes an API token", async ({ page, baseURL }) => {
   const { admin } = await createOrgWithAdmin();
   await loginAs(page, admin.email);
   await page.goto("/settings/api-tokens");
@@ -78,7 +78,7 @@ test("a user creates, sees once and revokes an API token", async ({ page }) => {
   const created = page.getByTestId("new-api-token");
   await expect(created).toContainText("won't be shown again");
   await expect(page.getByLabel("New API token")).toHaveValue(/^vdt_[A-Za-z0-9_-]{43}$/);
-  if (process.env.MCP_PUBLIC_URL) await expect(created).toContainText(process.env.MCP_PUBLIC_URL);
+  await expect(created).toContainText(process.env.MCP_PUBLIC_URL?.trim() || `${baseURL}/mcp`);
 
   const row = page.getByRole("row", { name: /Claude Code/ });
   await expect(row.getByText("Active")).toBeVisible();
@@ -88,4 +88,38 @@ test("a user creates, sees once and revokes an API token", async ({ page }) => {
 
   await page.reload();
   await expect(page.getByTestId("new-api-token")).toHaveCount(0);
+});
+
+test("an API token works at the web app's /mcp until it is revoked", async ({ page, request }) => {
+  const { admin } = await createOrgWithAdmin();
+  await loginAs(page, admin.email);
+  await page.goto("/settings/api-tokens");
+  await page.getByLabel("Token name").fill("Agent");
+  await page.getByRole("button", { name: "Create token" }).click();
+  const token = await page.getByLabel("New API token").inputValue();
+
+  const mcp = (method: string, params: Record<string, unknown> = {}) =>
+    request.post("/mcp", {
+      headers: { authorization: `Bearer ${token}`, accept: "application/json, text/event-stream" },
+      data: { jsonrpc: "2.0", id: 1, method, params },
+    });
+  const init = await mcp("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "e2e", version: "0" } });
+  expect(init.status()).toBe(200);
+  expect((await init.json()).result.serverInfo.name).toBe("veradact");
+  const tools = await mcp("tools/list");
+  expect(((await tools.json()).result.tools as { name: string }[]).map((t) => t.name).sort()).toEqual([
+    "get_confirmed_spec",
+    "get_item",
+    "list_engagements",
+    "list_unconfirmed",
+  ]);
+  expect((await request.get("/mcp")).status()).toBe(405);
+
+  const row = page.getByRole("row", { name: /Agent/ });
+  page.once("dialog", (dialog) => dialog.accept());
+  await row.getByRole("button", { name: "Revoke" }).click();
+  await expect(row.getByText("Revoked")).toBeVisible();
+  const revoked = await mcp("tools/list");
+  expect(revoked.status()).toBe(401);
+  expect(revoked.headers()["www-authenticate"]).toBe('Bearer realm="veradact", error="invalid_token"');
 });

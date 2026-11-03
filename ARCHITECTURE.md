@@ -15,7 +15,7 @@ Product spec: [`docs/SPEC.md`](docs/SPEC.md). Decision log: [`DECISIONS.md`](DEC
  cron       ──▶ │ /api/cron/reminders, /api/cron/retention          (bearer CRON_SECRET)             │
                 └───────────────┬───────────────────────────────────────────────────────────────────┘
                                 │ calls services
- coding agent ─▶ apps/mcp (Node http, MCP SDK Streamable HTTP, bearer API token) ─┐
+ coding agent ─▶ apps/mcp, or /mcp in apps/web (MCP SDK, bearer API token) ───────┐
                                 ▼                                                 ▼
           packages/core  — domain (pure): events, canonical JSON + hashing, reducer, replay, diff,
                            dependencies, business days, metrics, consent policy, word diff
@@ -309,7 +309,7 @@ Pending candidates grouped by source: Accept, Edit-then-accept (statement, kind,
 
 ## 11. MCP server (`apps/mcp`)
 
-Node `http` server on `MCP_PORT`, `/mcp` via the SDK's Streamable HTTP transport, stateless. `Authorization: Bearer vdt_…` → `auth_resolve_api_token` → org + user; per-token and per-IP rate limits. Read-only tools (ids accept UUID, short code `HALV`, or short id `HALV-R7`):
+One fetch-style handler (`apps/mcp/src/handler.ts`: the SDK's web-standard Streamable HTTP transport, stateless, JSON responses) served two ways: the Node `http` server on `MCP_PORT` (`server.ts`, plus `/healthz`) and the web app's `/mcp` route, so a serverless deployment needs no second process (D-065). `Authorization: Bearer vdt_…` → `auth_resolve_api_token` → org + user; per-token and per-IP rate limits. Read-only tools (ids accept UUID, short code `HALV`, or short id `HALV-R7`):
 - `list_engagements()`
 - `get_confirmed_spec(engagement_id, as_of?)` → spec markdown (§10)
 - `get_item(item_id)` → item with versions, responses, dependencies; unconfirmed items carry `do_not_build: true`
@@ -351,7 +351,7 @@ Engagement list · Engagement ledger (filter by kind, status, needs-review) · I
   | sign-up completion | client IP | 30 / 15 min | `SIGNUP_RATE_LIMITS.completePerIp` |
   | client page `/c/*` (GET and POST) | client IP | 300 / 15 min | `core/confirmation/client-actions.ts` `CLIENT_PAGE_RATE_LIMITS.perIp` |
   | client page `/c/*` (GET and POST) | link id (from the token, unverified) | 120 / 15 min | `CLIENT_PAGE_RATE_LIMITS.perLink` |
-  | MCP `/mcp` | client IP (before authentication) | 120 / min | `apps/mcp/src/server.ts` `DEFAULT_RATE_LIMITS.perIpPerMinute` |
+  | MCP `/mcp` | client IP (before authentication) | 120 / min | `apps/mcp/src/handler.ts` `DEFAULT_RATE_LIMITS.perIpPerMinute` |
   | MCP `/mcp` | API token (after authentication) | 60 / min | `DEFAULT_RATE_LIMITS.perTokenPerMinute` |
   | invite user (attempts, conflicts included) | org | 20 / hour | `core/org/users.ts` `INVITE_RATE_LIMIT` |
 
@@ -387,7 +387,7 @@ Engagement list · Engagement ledger (filter by kind, status, needs-review) · I
 
 ## 17. Deployment (pilot)
 
-Any Node 22 host for `apps/web` and `apps/mcp` plus a Supabase project as the database (Postgres 17; any Postgres 16+ works, D-061). Production email through any SMTP provider (`SMTP_URL`). A scheduler (platform cron or similar) calls `/api/cron/reminders` hourly and `/api/cron/retention` daily with `Authorization: Bearer $CRON_SECRET` (or runs `pnpm jobs:run`). No vendor-specific deployment code in the MVP.
+Any Node 22 host for `apps/web` (which also serves the MCP endpoint at `/mcp`; `apps/mcp` is optional) plus a Supabase project as the database (Postgres 17; any Postgres 16+ works, D-061). Production email through any SMTP provider (`SMTP_URL`) with a verified sending domain. A scheduler (platform cron or similar) calls `/api/cron/reminders` hourly and `/api/cron/retention` daily with `Authorization: Bearer $CRON_SECRET`, as POST or GET (or runs `pnpm jobs:run`). The only vendor-specific file is `apps/web/vercel.json` (§17.2).
 
 - Run both apps behind a TLS-terminating proxy and set `TRUSTED_PROXY_HOPS` to exactly the number of trusted proxies that append to `X-Forwarded-For` (§14). Running without a proxy is unsupported in production; the web app refuses to start with `TRUSTED_PROXY_HOPS=0`. `APP_URL` must be the public https URL (cookies, links, CSRF checks and HSTS depend on it).
 - **Proxies, CDNs and load balancers must not log the path or query of `/c/*` and `/auth/verify` requests**: client links and magic links carry their bearer token in the URL. Configure access logs to drop or truncate those paths (the app's own logs never contain them).
@@ -425,3 +425,12 @@ Supabase hosts Postgres only (D-061): the apps keep their own auth, RLS and migr
    Set log and backup retention to match the privacy policy.
 
 Never run `pnpm seed --reset` or the tests against a hosted project: the reset deletes event rows (it refuses Supabase hosts even with `--force`), and test setup drops `public` in the `*_test` database.
+
+### 17.2 Vercel (pilot)
+
+The pilot runs on Vercel (D-065): project root `apps/web`, deployed from `main` through the GitHub integration, Node 22, functions in `iad1` next to the Supabase project in `us-east-1`.
+
+- **Environment** (Production only; a change takes effect on the next deployment): `DATABASE_URL` in transaction mode (port 6543, `&prepare=false`), `APP_URL`, `SESSION_SECRET`, `LINK_SIGNING_SECRET`, `CRON_SECRET`, `TRUSTED_PROXY_HOPS=1` (Vercel overwrites `X-Forwarded-For` with the client address), `EMAIL_PROVIDER=smtp`, `SMTP_URL`, `EMAIL_FROM`, `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `SIGNUP_ENABLED`. Leave `MCP_PUBLIC_URL` unset: the API tokens page then shows `APP_URL/mcp`. Without `ANTHROPIC_API_KEY` extraction falls back to the fixture client (D-051), which suggests nothing for real sources. Give Preview deployments their own database and secrets, or none: with the production values every pushed branch runs unreviewed code against production data, and its forms fail the origin checks because `APP_URL` names production.
+- **Email.** `EMAIL_FROM` must use a domain verified with the SMTP provider. Resend's shared sender `onboarding@resend.dev` delivers only to the Resend account owner's address, so nobody else receives sign-up, sign-in, invite or confirmation mail.
+- **Crons.** `vercel.json` runs reminders in the 13:00 hour and retention in the 04:00 hour UTC (Hobby runs a job at any minute within its hour); Vercel calls them with GET and adds `Authorization: Bearer $CRON_SECRET` itself. The Hobby plan allows one run per day per job, so reminders can be up to a day late; on Pro, schedule reminders hourly (`0 * * * *`) as §8.6 assumes.
+- **Request logs.** Vercel's logs show request paths to project members for the plan's log retention, so client-link tokens (`/c/<token>`) are visible there; the rule above about not logging these paths cannot be configured on Vercel. Keep project membership to operators and add no log drains.

@@ -1,5 +1,6 @@
-// POST /api/cron/reminders — sends due confirmation reminders (ARCHITECTURE §8.6). Called by the
-// platform scheduler with `Authorization: Bearer ${CRON_SECRET}` (constant-time compare).
+// POST or GET /api/cron/reminders — sends due confirmation reminders (ARCHITECTURE §8.6). Called by
+// the platform scheduler with `Authorization: Bearer ${CRON_SECRET}` (constant-time compare);
+// Vercel Cron sends GET (D-065).
 import type { NextRequest } from "next/server";
 import { logError, runReminders } from "@veradact/core";
 import { clock } from "@/lib/clock";
@@ -20,3 +21,5 @@ export async function POST(request: NextRequest): Promise<Response> {
     return cronJson({ error: "failed" }, 500);
   }
 }
+
+export const GET = POST;

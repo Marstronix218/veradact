@@ -34,6 +34,7 @@ const nextConfig: NextConfig = {
     "@veradact/email",
     "@veradact/export",
     "@veradact/ingest",
+    "@veradact/mcp",
   ],
   serverExternalPackages: ["pdfkit", "mammoth"],
   poweredByHeader: false,

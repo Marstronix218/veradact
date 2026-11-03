@@ -12,7 +12,10 @@ export function appUrl(): string {
   return requireEnv("APP_URL").replace(/\/+$/, "");
 }
 
-/** Public URL of the MCP endpoint shown on the API tokens page, or null when unset. */
-export function mcpPublicUrl(): string | null {
-  return process.env.MCP_PUBLIC_URL?.trim() || null;
+/**
+ * Public URL of the MCP endpoint shown on the API tokens page: `MCP_PUBLIC_URL` when agents use
+ * the standalone server (apps/mcp), else this app's own `/mcp` route (D-065).
+ */
+export function mcpPublicUrl(): string {
+  return process.env.MCP_PUBLIC_URL?.trim() || `${appUrl()}/mcp`;
 }

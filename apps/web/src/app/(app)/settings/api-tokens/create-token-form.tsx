@@ -5,7 +5,7 @@ import { Button, Input, Notice } from "@/components";
 import { createApiTokenAction, type CreateTokenState } from "./actions";
 
 /** Creates a token and shows the raw value exactly once, with MCP connection details. */
-export function CreateTokenForm({ mcpUrl }: { mcpUrl: string | null }) {
+export function CreateTokenForm({ mcpUrl }: { mcpUrl: string }) {
   const [state, formAction, pending] = useActionState<CreateTokenState, FormData>(createApiTokenAction, {
     status: "idle",
   });
@@ -40,17 +40,15 @@ export function CreateTokenForm({ mcpUrl }: { mcpUrl: string | null }) {
               {copied ? "Copied" : "Copy"}
             </Button>
           </div>
-          {mcpUrl ? (
-            <div className="space-y-1 text-sm text-green-900">
-              <p>
-                MCP server URL: <code className="font-mono text-xs">{mcpUrl}</code>
-              </p>
-              <p>Send the token as a bearer token, for example in Claude Code:</p>
-              <pre className="overflow-x-auto rounded bg-white p-2 font-mono text-xs text-zinc-800">
-                {`claude mcp add --transport http veradact ${mcpUrl} --header "Authorization: Bearer <token>"`}
-              </pre>
-            </div>
-          ) : null}
+          <div className="space-y-1 text-sm text-green-900">
+            <p>
+              MCP server URL: <code className="font-mono text-xs">{mcpUrl}</code>
+            </p>
+            <p>Send the token as a bearer token, for example in Claude Code:</p>
+            <pre className="overflow-x-auto rounded bg-white p-2 font-mono text-xs text-zinc-800">
+              {`claude mcp add --transport http veradact ${mcpUrl} --header "Authorization: Bearer <token>"`}
+            </pre>
+          </div>
         </div>
       ) : null}
       <form action={formAction} className="flex flex-col gap-3 sm:flex-row sm:items-end">

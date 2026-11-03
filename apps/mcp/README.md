@@ -13,6 +13,8 @@ curl http://localhost:3001/healthz            # {"ok":true}
 
 The server reads the repo-root `.env` (`DATABASE_URL`, `MCP_PORT`, default 3001) and serves the MCP endpoint at `http://localhost:3001/mcp` (Streamable HTTP, stateless, JSON responses).
 
+The web app serves the same endpoint at `<APP_URL>/mcp` (`apps/web/src/app/mcp/route.ts`, D-065), so a hosted deployment needs no separate MCP process: on the pilot, connect agents to `https://veradact.vercel.app/mcp`.
+
 ## Create an API token
 
 In the web app go to **Settings → API tokens**, create a token and copy it. It starts with `vdt_` and is shown only once. A token acts as you, inside your organization, and can be revoked on the same page.

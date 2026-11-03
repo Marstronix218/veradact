@@ -1,6 +1,6 @@
-// POST /api/cron/retention — redacts sources older than each org's retention window and prunes
-// expired rate-limit windows (ARCHITECTURE §6). Called daily by the platform scheduler with
-// `Authorization: Bearer ${CRON_SECRET}` (constant-time compare).
+// POST or GET /api/cron/retention — redacts sources older than each org's retention window and
+// prunes expired rate-limit windows (ARCHITECTURE §6). Called daily by the platform scheduler with
+// `Authorization: Bearer ${CRON_SECRET}` (constant-time compare); Vercel Cron sends GET (D-065).
 import type { NextRequest } from "next/server";
 import { logError, runRetention } from "@veradact/core";
 import { clock } from "@/lib/clock";
@@ -19,3 +19,5 @@ export async function POST(request: NextRequest): Promise<Response> {
     return cronJson({ error: "failed" }, 500);
   }
 }
+
+export const GET = POST;

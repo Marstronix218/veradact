@@ -2,7 +2,7 @@
 // the test database (app role, RLS enforced). Engagements come from the shared export scenario.
 import { randomBytes } from "node:crypto";
 import { once } from "node:events";
-import type { Server } from "node:http";
+import { request as httpRequest, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
@@ -354,13 +354,37 @@ describe("HTTP", () => {
     expect((await post(await sharedUrl, { token: token.token, body })).status).toBe(413);
   });
 
-  it("answers 405 for GET/DELETE on /mcp, 404 elsewhere and 200 on /healthz", async () => {
+  it("ends a request the SDK never answers with 504 at the deadline", async () => {
+    const { token } = await scenarioWithToken();
+    const url = await startServer({ requestTimeoutMs: 300, rateLimits: { perTokenPerMinute: 1000, perIpPerMinute: 1000 } });
+    // A batch that cancels its own call: the SDK drops the reply, so JSON mode would wait forever.
+    const body = JSON.stringify([
+      { jsonrpc: "2.0", id: 1, method: "ping" },
+      { jsonrpc: "2.0", method: "notifications/cancelled", params: { requestId: 1 } },
+    ]);
+    const response = await post(url, { token: token.token, body });
+    expect(response.status).toBe(504);
+    // The server is still usable.
+    expect((await post(url, { token: token.token })).status).toBe(200);
+  });
+
+  it("answers 405 for GET/DELETE/TRACE on /mcp, 404 elsewhere and 200 on /healthz", async () => {
     const url = await sharedUrl;
     for (const method of ["GET", "DELETE"]) {
       const response = await fetch(url, { method });
       expect(response.status).toBe(405);
       expect(response.headers.get("allow")).toBe("POST");
     }
+    // fetch cannot send TRACE, and a fetch Request cannot hold it.
+    const trace = await new Promise<number | undefined>((resolve, reject) => {
+      httpRequest(url, { method: "TRACE" }, (res) => {
+        res.resume();
+        resolve(res.statusCode);
+      })
+        .on("error", reject)
+        .end();
+    });
+    expect(trace).toBe(405);
     expect((await fetch(new URL("/nope", url))).status).toBe(404);
     const health = await fetch(new URL("/healthz", url));
     expect(health.status).toBe(200);
