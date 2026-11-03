@@ -1,6 +1,6 @@
 // Pre-tenant SECURITY DEFINER functions (ARCHITECTURE §7), called as the app role.
 import { randomUUID } from "node:crypto";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { afterAll, describe, expect, it } from "vitest";
 import {
   authConsumeLoginToken,
@@ -9,8 +9,9 @@ import {
   authResolveSession,
   jobsListOrgIds,
   linkResolve,
+  signupCreateOrg,
 } from "./definer";
-import { apiToken, appUser, confirmationLink, loginToken, session } from "./schema";
+import { apiToken, appUser, confirmationLink, loginToken, org, session } from "./schema";
 import {
   adminTestDb,
   createTestContact,
@@ -49,6 +50,10 @@ const FUNCTIONS: Record<string, { signature: string; columns: string[] }> = {
     columns: ["link_id", "org_id", "engagement_id", "request_id", "contact_id", "expires_at", "revoked_at"],
   },
   jobs_list_org_ids: { signature: "jobs_list_org_ids()", columns: [] },
+  signup_create_org: {
+    signature: "signup_create_org(uuid, text, text, uuid, text, text, timestamptz)",
+    columns: ["org_id", "user_id"],
+  },
 };
 
 describe("definer function catalog", () => {
@@ -279,5 +284,40 @@ describe("jobs_list_org_ids", () => {
     const [one, two] = await Promise.all([createTestTenant(admin.db), createTestTenant(admin.db)]);
     const ids = await jobsListOrgIds(app.db);
     expect(ids).toEqual(expect.arrayContaining([one.org.id, two.org.id]));
+  });
+});
+
+describe("signup_create_org", () => {
+  const input = () => ({
+    orgId: randomUUID(),
+    orgName: "Signup Org",
+    slug: `signup-${randomUUID()}`,
+    userId: randomUUID(),
+    email: `signup-${randomUUID()}@example.test`,
+    userName: "Signup Admin",
+    createdAt: new Date(),
+  });
+
+  it("creates the org with AI off and its first user as admin", async () => {
+    const values = input();
+    expect(await signupCreateOrg(app.db, values)).toEqual({ orgId: values.orgId, userId: values.userId });
+    const [created] = await admin.db.select().from(org).where(eq(org.id, values.orgId));
+    expect(created).toMatchObject({ name: "Signup Org", slug: values.slug, aiEnabled: false });
+    const [user] = await admin.db.select().from(appUser).where(eq(appUser.id, values.userId));
+    expect(user).toMatchObject({ orgId: values.orgId, email: values.email, name: "Signup Admin", role: "admin" });
+  });
+
+  it("returns null and creates nothing when the email already has a user", async () => {
+    const { user } = await createTestTenant(admin.db);
+    const values = { ...input(), email: user.email.toUpperCase() };
+    expect(await signupCreateOrg(app.db, values)).toBeNull();
+    expect(await admin.db.select().from(org).where(eq(org.id, values.orgId))).toEqual([]);
+  });
+
+  it("returns null and creates nothing when the slug is taken", async () => {
+    const { org: existing } = await createTestTenant(admin.db);
+    const values = { ...input(), slug: existing.slug };
+    expect(await signupCreateOrg(app.db, values)).toBeNull();
+    expect(await admin.db.select().from(appUser).where(eq(appUser.id, values.userId))).toEqual([]);
   });
 });

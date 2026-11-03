@@ -15,7 +15,10 @@ export type RateLimitScope =
   | "client_page_link"
   | "mcp_token"
   | "mcp_ip"
-  | "user_invite_org";
+  | "user_invite_org"
+  | "signup_ip"
+  | "signup_email"
+  | "signup_complete_ip";
 
 export interface RateLimitInput {
   scope: RateLimitScope;

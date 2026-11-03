@@ -137,3 +137,27 @@ export async function jobsListOrgIds(q: Queryable): Promise<string[]> {
   );
   return rows.map((row) => row.org_id);
 }
+
+export interface SignupOrgInput {
+  orgId: string;
+  orgName: string;
+  slug: string;
+  userId: string;
+  email: string;
+  userName: string;
+  createdAt: Date;
+}
+
+/**
+ * Creates an org (AI off) and its first admin in one statement (D-062). Null when the email or
+ * slug is already taken; nothing is created then.
+ */
+export async function signupCreateOrg(q: Queryable, input: SignupOrgInput): Promise<UserRef | null> {
+  const rows = await q.execute<{ org_id: string; user_id: string }>(
+    sql`select org_id, user_id from signup_create_org(
+          ${input.orgId}::uuid, ${input.orgName}, ${input.slug},
+          ${input.userId}::uuid, ${input.email}, ${input.userName}, ${input.createdAt})`,
+  );
+  const row = rows[0];
+  return row ? { userId: row.user_id, orgId: row.org_id } : null;
+}

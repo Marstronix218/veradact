@@ -50,6 +50,13 @@
       "when": 1793609698346,
       "tag": "0006_supabase_api_lockdown",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793663333168,
+      "tag": "0007_signup",
+      "breakpoints": true
     }
   ]
 }

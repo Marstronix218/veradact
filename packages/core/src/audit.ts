@@ -4,6 +4,7 @@ import { auditLog, type Tx } from "@veradact/db";
 import type { SafeFields } from "./log";
 
 export const AUDIT_ACTIONS = [
+  "auth.signup",
   "auth.login",
   "auth.logout",
   "source.ingest",

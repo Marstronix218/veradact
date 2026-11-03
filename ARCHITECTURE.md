@@ -50,7 +50,7 @@ All tenant tables carry `org_id uuid not null` and have RLS enabled (§7). Forei
 
 | table | key columns | notes |
 |---|---|---|
-| `org` | `id, name, slug, ai_enabled bool=true, retention_days int null, all_party_states text[]` (default §9.2), `block_unknown_jurisdictions bool=true, reminder_business_days int=2, created_at` | RLS: `id = current org`. Created only by `pnpm org:create` (admin URL) |
+| `org` | `id, name, slug, ai_enabled bool=true, retention_days int null, all_party_states text[]` (default §9.2), `block_unknown_jurisdictions bool=true, reminder_business_days int=2, created_at` | RLS: `id = current org`. Created by `pnpm org:create` (admin URL) or self-serve sign-up through `signup_create_org` (D-062) |
 | `app_user` | `id, org_id, email citext unique, name, role ('admin'\|'member'), deactivated_at, created_at` | one org per user in MVP |
 | `login_token` | `id, org_id, user_id, token_hash, expires_at (15 min), used_at` | single use via `UPDATE … WHERE used_at IS NULL RETURNING` |
 | `session` | `id, org_id, user_id, token_hash unique, expires_at (30 d), revoked_at, last_seen_at` | cookie `vd_session` holds the raw token |
@@ -235,7 +235,7 @@ Rule: **anything that identifies or was authored by a client contact, all source
 - Roles: the owner role (`postgres` on Supabase, D-061) owns all objects, runs migrations, seed and `org:create`. `veradact_app` (`NOSUPERUSER NOBYPASSRLS`) is the only role the apps use. Supabase's API roles (`anon`, `authenticated`, `service_role`) hold no privilege on any Veradact object (migration 0006).
 - Every tenant table: `ENABLE ROW LEVEL SECURITY` + policy `USING (org_id = app_current_org()) WITH CHECK (org_id = app_current_org())`, `app_current_org()` = `nullif(current_setting('app.org_id', true), '')::uuid`. No setting → no rows.
 - `withTenant(db, { orgId, userId? }, fn)` opens a transaction, runs `select set_config('app.org_id', $1, true)`, then `fn(tx)`. All tenant data access goes through it.
-- Pre-tenant lookups: narrow `SECURITY DEFINER` functions owned by the owner role, `SET search_path = public, pg_temp`, `REVOKE EXECUTE … FROM PUBLIC`, `GRANT EXECUTE … TO veradact_app`, returning ids only: `auth_find_user_by_email(email)`, `auth_consume_login_token(hash)` (single-use `UPDATE … RETURNING`), `auth_resolve_session(hash)`, `auth_resolve_api_token(hash)`, `link_resolve(link_id)`, `jobs_list_org_ids()`.
+- Pre-tenant lookups: narrow `SECURITY DEFINER` functions owned by the owner role, `SET search_path = public, pg_temp`, `REVOKE EXECUTE … FROM PUBLIC`, `GRANT EXECUTE … TO veradact_app`, returning ids only: `auth_find_user_by_email(email)`, `auth_consume_login_token(hash)` (single-use `UPDATE … RETURNING`), `auth_resolve_session(hash)`, `auth_resolve_api_token(hash)`, `link_resolve(link_id)`, `jobs_list_org_ids()`, `signup_create_org(…)` (D-062: creates an org with AI off and its admin; no row on a unique violation).
 - Jobs iterate `jobs_list_org_ids()` and do all work per org inside `withTenant`.
 - Tests: (1) a catalog sweep fails on any `public` table without RLS enabled and an `org_id` column, except an allow-list (`rate_limit_bucket`, migration bookkeeping); (2) for every tenant table, a session scoped to org A cannot read, insert, update or delete org B rows, and `insert … org_id = B` fails `WITH CHECK`; (3) the Supabase API roles hold no grant on any table, sequence or definer function, get none from default privileges, and are refused by the database (`supabase-roles.int.test.ts`).
 
@@ -345,6 +345,9 @@ Engagement list · Engagement ledger (filter by kind, status, needs-review) · I
   | magic-link request | client IP | 20 / 15 min | `core/auth/magic-link.ts` `MAGIC_LINK_RATE_LIMITS.perIp` |
   | magic-link request | normalized email | 5 / 15 min | `MAGIC_LINK_RATE_LIMITS.perEmail` |
   | magic-link verify (POST) | client IP | 30 / 15 min | `MAGIC_LINK_RATE_LIMITS.verifyPerIp` |
+  | sign-up request | client IP | 10 / hour | `core/auth/signup.ts` `SIGNUP_RATE_LIMITS.perIp` |
+  | sign-up request | normalized email | 3 / hour | `SIGNUP_RATE_LIMITS.perEmail` |
+  | sign-up completion | client IP | 30 / 15 min | `SIGNUP_RATE_LIMITS.completePerIp` |
   | client page `/c/*` (GET and POST) | client IP | 300 / 15 min | `core/confirmation/client-actions.ts` `CLIENT_PAGE_RATE_LIMITS.perIp` |
   | client page `/c/*` (GET and POST) | link id (from the token, unverified) | 120 / 15 min | `CLIENT_PAGE_RATE_LIMITS.perLink` |
   | MCP `/mcp` | client IP (before authentication) | 120 / min | `apps/mcp/src/server.ts` `DEFAULT_RATE_LIMITS.perIpPerMinute` |
@@ -377,7 +380,7 @@ Engagement list · Engagement ledger (filter by kind, status, needs-review) · I
 
 - Unit (pure): canonical JSON, hashing, reducer, replay, diff, dependencies, consent, parsers, quote verification, business days, metrics, word diff, markdown export.
 - Integration (Vitest, real Postgres `veradact_test` as `veradact_app`, files `*.int.test.ts`): append-only enforcement, hash-chain tamper and truncation detection, hash round-trip, RLS catalog sweep + cross-tenant read/write, version-bound confirmations, sourced-or-manual, bitemporal fields, rebuild == live (property test, 1,000 events), AI-off zero model calls, consent blocking, erasure keeps the chain valid.
-- Application-layer isolation (`core/src/security/cross-tenant.int.test.ts`, `apps/mcp/src/export-loaders-cross-tenant.int.test.ts`): every command, query and export loader that takes an id answers org B's ids exactly like unknown ids and changes nothing in org B. Audit coverage (`core/src/audit-coverage.int.test.ts`): every audit action has a writer and metadata is ids/enums/counts only. Retention (`core/src/jobs/retention.int.test.ts`). Rate limits: magic link (`core/src/auth`), client pages (`core/src/confirmation/client-rate-limit.int.test.ts`), MCP (`apps/mcp/src/server.int.test.ts`).
+- Application-layer isolation (`core/src/security/cross-tenant.int.test.ts`, `apps/mcp/src/export-loaders-cross-tenant.int.test.ts`): every command, query and export loader that takes an id answers org B's ids exactly like unknown ids and changes nothing in org B. Audit coverage (`core/src/audit-coverage.int.test.ts`): every audit action has a writer and metadata is ids/enums/counts only. Retention (`core/src/jobs/retention.int.test.ts`). Rate limits: magic link and sign-up (`core/src/auth`), client pages (`core/src/confirmation/client-rate-limit.int.test.ts`), MCP (`apps/mcp/src/server.int.test.ts`).
 - E2E (Playwright): full confirmation flow incl. expired/revoked links; deletion flow (`e2e/privacy.spec.ts`: erase a contact, redact a source, chain still verifies); replay and export; CSRF and body limits on the public POSTs.
 - Eval: extraction precision/recall.
 

@@ -19,3 +19,20 @@ export {
   type NewSession,
   type SessionAuth,
 } from "./session";
+export {
+  completeSignup,
+  isSignupEnabled,
+  openSignupToken,
+  ORG_NAME_MAX_LENGTH,
+  orgSlug,
+  requestSignup,
+  sealSignupToken,
+  SIGNUP_RATE_LIMITS,
+  SIGNUP_TOKEN_TTL_MS,
+  SIGNUP_USER_NAME_MAX_LENGTH,
+  signupUrl,
+  type CompleteSignupInput,
+  type CompleteSignupResult,
+  type RequestSignupInput,
+  type RequestSignupResult,
+} from "./signup";

@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
+import { isSignupEnabled } from "@veradact/core";
 import { ActionForm, Button, Card, Input, Notice } from "@/components";
 import { getAuth } from "@/lib/session";
 import { requestLoginLink } from "./actions";
@@ -8,6 +10,7 @@ export const metadata: Metadata = { title: "Sign in" };
 
 const ERRORS: Record<string, string> = {
   link: "That sign-in link is invalid, has expired or was already used. Request a new one below.",
+  exists: "That email address already has an account. Sign in below.",
 };
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
@@ -39,6 +42,14 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           </Button>
         </ActionForm>
       </Card>
+      {isSignupEnabled() ? (
+        <p className="mt-6 text-center text-sm text-zinc-600">
+          New to Veradact?{" "}
+          <Link href="/signup" className="font-medium text-zinc-900 underline">
+            Create an account
+          </Link>
+        </p>
+      ) : null}
     </main>
   );
 }

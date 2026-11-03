@@ -38,7 +38,7 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["pdfkit", "mammoth"],
   poweredByHeader: false,
   // The dev request log prints full URLs; never print magic-link or client-link tokens.
-  logging: { incomingRequests: { ignore: [/^\/auth\/verify/, /^\/c\//] } },
+  logging: { incomingRequests: { ignore: [/^\/auth\/verify/, /^\/signup\/complete/, /^\/c\//] } },
   outputFileTracingRoot: repoRoot,
   // Prompts are read from disk at runtime by @veradact/ai; the fixture model client
   // (MODEL_CLIENT=fixture) reads fixtures/.
@@ -50,6 +50,9 @@ const nextConfig: NextConfig = {
       { source: "/:path*", headers: securityHeaders },
       // The magic-link interstitial carries a token in its URL (D-045); later rules win.
       { source: "/auth/verify", headers: [{ key: "Referrer-Policy", value: "no-referrer" }] },
+      // So does the sign-up link (D-062). strict-origin, not no-referrer: its form posts to a server
+      // action, and no-referrer would send `Origin: null`, which Next's action handler cannot parse.
+      { source: "/signup/complete", headers: [{ key: "Referrer-Policy", value: "strict-origin" }] },
       // Client confirmation pages carry the link token in their URL (ARCHITECTURE §8.3). Config
       // headers override route-handler headers, so the stricter value must be set here too.
       { source: "/c/:path*", headers: [{ key: "Referrer-Policy", value: "no-referrer" }] },

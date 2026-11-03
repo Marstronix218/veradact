@@ -17,6 +17,7 @@ import { createApiToken, revokeApiToken } from "./api-tokens";
 import { AUDIT_ACTIONS, type AuditAction } from "./audit";
 import { requestMagicLink, verifyMagicLink } from "./auth/magic-link";
 import { logout } from "./auth/session";
+import { completeSignup, sealSignupToken } from "./auth/signup";
 import {
   addContact,
   archiveEngagement,
@@ -146,7 +147,30 @@ describe("audit coverage", () => {
     await revokeApiToken({ db: app.db, ctx: auth, clock, tokenId: token.id });
     await deactivateUser({ db: app.db, ctx: auth, clock, userId: invited.user.id });
 
-    const rows = await withTenant(app.db, { orgId: e.orgId }, (tx) => tx.select().from(auditLog).where(eq(auditLog.orgId, e.orgId)));
+    // auth.signup (+ auth.login) in a new org
+    const signupEmail = `signup-${randomUUID()}@example.test`;
+    const signupSecret = "audit-signup-secret-".padEnd(40, "x");
+    const signupToken = sealSignupToken({ secret: signupSecret, email: signupEmail, expiresAt: new Date(Date.now() + 60_000) });
+    secrets.push(signupEmail, signupToken, "Audit Signup Org", "Audit Signup Admin");
+    const signup = await completeSignup({
+      db: app.db,
+      token: signupToken,
+      orgName: "Audit Signup Org",
+      userName: "Audit Signup Admin",
+      clock,
+      ip: `audit-${randomUUID()}`,
+      secret: signupSecret,
+      env: { SIGNUP_ENABLED: "true" },
+    });
+    if (signup.status !== "ok") throw new Error("signup failed");
+    secrets.push(signup.sessionToken);
+
+    const rows = [
+      ...(await withTenant(app.db, { orgId: e.orgId }, (tx) => tx.select().from(auditLog).where(eq(auditLog.orgId, e.orgId)))),
+      ...(await withTenant(app.db, { orgId: signup.session.orgId }, (tx) =>
+        tx.select().from(auditLog).where(eq(auditLog.orgId, signup.session.orgId)),
+      )),
+    ];
     const written = new Set(rows.map((r) => r.action));
     const coreActions = AUDIT_ACTIONS.filter((a) => !(a in WRITTEN_OUTSIDE_CORE));
     for (const action of coreActions) expect(written.has(action), action).toBe(true);
