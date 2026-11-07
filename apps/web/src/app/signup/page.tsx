@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { isSignupEnabled } from "@veradact/core";
-import { ActionForm, Button, Card, Input, Notice, Wordmark } from "@/components";
+import { ActionForm, AuthSwitch, Button, Card, Input, Notice, Wordmark } from "@/components";
 import { getAuth } from "@/lib/session";
 import { requestSignupLink } from "./actions";
 
@@ -23,6 +22,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Promi
         <Wordmark size="lg" />
         <p className="mt-2 text-sm text-zinc-600">Proof of what your client agreed to.</p>
       </div>
+      <AuthSwitch current="signup" />
       {isSignupEnabled() ? (
         <Card
           title="Create an account"
@@ -51,12 +51,6 @@ export default async function SignupPage({ searchParams }: { searchParams: Promi
       ) : (
         <Card title="Sign-ups are closed" description="Ask your organization's admin to invite you." />
       )}
-      <p className="mt-6 text-center text-sm text-zinc-600">
-        Already have an account?{" "}
-        <Link href="/login" className="font-medium text-zinc-900 underline">
-          Sign in
-        </Link>
-      </p>
     </main>
   );
 }

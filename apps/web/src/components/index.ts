@@ -1,5 +1,6 @@
 // Client components import this barrel too, so nothing here may import @veradact/core values.
 // KindChip does: server pages import it from "@/components/KindChip".
+export { AuthSwitch } from "./AuthSwitch";
 export { Badge, type BadgeTone } from "./Badge";
 export { BrandMark, Wordmark } from "./Brand";
 export { Button, buttonClasses, type ButtonProps, type ButtonSize, type ButtonVariant } from "./Button";

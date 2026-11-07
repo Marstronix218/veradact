@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { isDemoLoginEnabled, isSignupEnabled } from "@veradact/core";
-import { ActionForm, Button, Card, Input, Notice, Wordmark } from "@/components";
+import { ActionForm, AuthSwitch, Button, Card, Input, Notice, Wordmark } from "@/components";
 import { getAuth } from "@/lib/session";
 import { requestLoginLink, signInToDemo } from "./actions";
 
@@ -24,6 +23,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <Wordmark size="lg" />
         <p className="mt-2 text-sm text-zinc-600">Proof of what your client agreed to.</p>
       </div>
+      {isSignupEnabled() ? <AuthSwitch current="login" /> : null}
       <Card title="Sign in" description="We'll email you a one-time sign-in link. There is no password.">
         {errorMessage ? (
           <div className="mb-4">
@@ -45,14 +45,6 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           </Button>
         </ActionForm>
       </Card>
-      {isSignupEnabled() ? (
-        <p className="mt-6 text-center text-sm text-zinc-600">
-          New to Veradact?{" "}
-          <Link href="/signup" className="font-medium text-zinc-900 underline">
-            Create an account
-          </Link>
-        </p>
-      ) : null}
       {isDemoLoginEnabled() ? (
         <Card title="Demo account" description="Fictional Quillfield Labs data. Works for the seeded demo users only." className="mt-6">
           <ActionForm action={signInToDemo} className="space-y-4">
