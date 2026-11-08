@@ -204,10 +204,10 @@ ${existing ? html`<p class="muted">Your current response: <strong>${DECISION_TEX
 <input type="hidden" name="v:${id}" value="${item.version}:${item.contentHash}">
 <fieldset>
 <legend>Your response to ${item.shortId}</legend>
-${radio("confirm", "Confirm", "this matches what was agreed")}
-${radio("dispute", "Dispute", "this is not right")}
+${radio("confirm", "Confirm", "this is correct")}
+${radio("dispute", "Dispute", "this is wrong or incomplete")}
 ${radio("skip", "Skip", "decide later")}
-<label class="comment-label" for="c-${id}">Comment (required to dispute)</label>
+<label class="comment-label" for="c-${id}">What is right instead? (required to dispute)</label>
 <textarea id="c-${id}" name="c:${id}" maxlength="5000" rows="3">${comment}</textarea>
 ${errorText ? html`<p class="field-error" id="e-${id}">${errorText}</p>` : null}
 </fieldset>
@@ -256,7 +256,7 @@ ${view.items.map((item) => itemCard(item, view, opts.values?.[item.itemId], opts
     `Confirm items · ${view.engagementName}`,
     html`${header(view, view.engagementName)}
 ${noticeBlock(notice)}
-${count > 0 ? html`<p>Hello ${view.contactName}. ${view.vendorName} asks you to check ${plural(count, "item", "items")}. For each one, choose <strong>Confirm</strong> if it matches what was agreed, <strong>Dispute</strong> if it does not (and say why), or <strong>Skip</strong> to decide later.</p>` : null}
+${count > 0 ? html`<p>Hello ${view.contactName}. ${view.vendorName} asks you to check ${plural(count, "item", "items")}. For each one, choose <strong>Confirm</strong> if it is correct, <strong>Dispute</strong> if it is wrong or incomplete (and say what is right), or <strong>Skip</strong> to decide later.</p>` : null}
 ${form}
 ${updatedSection(view)}
 ${footer(view)}`,
@@ -272,7 +272,7 @@ export function renderConfirmAllPage(view: ClientView, token: string, submission
   return document(
     `Confirm all · ${view.engagementName}`,
     html`${header(view, `Confirm all ${plural(count, "item", "items")}?`)}
-<p>You are about to confirm that every item below matches what was agreed with ${view.vendorName}. Please read the full list before you confirm.</p>
+<p>You are about to confirm to ${view.vendorName} that every item below is correct. Please read the full list before you confirm.</p>
 <ol class="list" id="confirm-all-list">
 ${view.items.map((item) => html`<li><span class="code">${item.shortId}</span> · ${KIND_LABEL[item.kind]}: ${item.statement}</li>`)}
 </ol>

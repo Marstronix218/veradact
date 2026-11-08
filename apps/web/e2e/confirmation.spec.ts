@@ -66,7 +66,7 @@ test("member sends a request; the client confirms two items and disputes one; re
   await group(client, first.shortId).getByRole("radio", { name: "Confirm" }).check();
   await group(client, second.shortId).getByRole("radio", { name: "Confirm" }).check();
   await group(client, third.shortId).getByRole("radio", { name: "Dispute" }).check();
-  await group(client, third.shortId).getByRole("textbox", { name: /Comment/ }).fill("Our carriers only accept XML uploads.");
+  await group(client, third.shortId).getByRole("textbox", { name: /What is right instead/ }).fill("Our carriers only accept XML uploads.");
   await client.getByRole("button", { name: "Submit responses" }).click();
 
   // 5. Sees the receipt.
