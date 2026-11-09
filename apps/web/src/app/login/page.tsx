@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { isDemoLoginEnabled, isSignupEnabled } from "@veradact/core";
 import { ActionForm, AuthSwitch, Button, Card, Input, Notice, Wordmark } from "@/components";
@@ -20,7 +21,9 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-4 py-12">
       <div className="mb-8 text-center">
-        <Wordmark size="lg" />
+        <Link href="/" className="inline-block rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ink-600">
+          <Wordmark size="lg" />
+        </Link>
         <p className="mt-2 text-sm text-zinc-600">Proof of what your client agreed to.</p>
       </div>
       {isSignupEnabled() ? <AuthSwitch current="login" /> : null}

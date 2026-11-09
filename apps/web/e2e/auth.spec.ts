@@ -18,7 +18,7 @@ test("signing in with a magic link opens the engagements page", async ({ page })
 });
 
 test("protected pages redirect to the login page when signed out", async ({ page }) => {
-  for (const path of ["/", "/engagements", "/settings", "/settings/users", "/settings/api-tokens", "/metrics"]) {
+  for (const path of ["/engagements", "/settings", "/settings/users", "/settings/api-tokens", "/metrics"]) {
     await page.goto(path);
     await expect(page).toHaveURL(/\/login$/);
   }
