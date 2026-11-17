@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest) {
   const base = appUrl();
   await logout({ db: getDb(), token: request.cookies.get(SESSION_COOKIE)?.value, clock });
-  const response = NextResponse.redirect(new URL("/login", base), 303);
+  const response = NextResponse.redirect(new URL("/", base), 303);
   response.cookies.set(SESSION_COOKIE, "", {
     httpOnly: true,
     sameSite: "lax",

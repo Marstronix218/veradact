@@ -49,6 +49,13 @@ export default async function SignupPage({ searchParams }: { searchParams: Promi
             <Button type="submit" className="w-full">
               Email me a sign-up link
             </Button>
+            <p className="text-xs leading-5 text-zinc-500">
+              Veradact is an early-stage beta. By continuing, you acknowledge its{" "}
+              <Link href="/beta" className="underline underline-offset-2 hover:text-zinc-700">
+                responsible-use limits
+              </Link>
+              .
+            </p>
           </ActionForm>
         </Card>
       ) : (

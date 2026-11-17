@@ -178,7 +178,12 @@ export default async function HomePage() {
       </main>
 
       <footer className="border-t border-zinc-200/80">
-        <div className="mx-auto max-w-6xl px-4 py-6 text-sm text-zinc-500">Veradact (beta) · Proof of what your client agreed to.</div>
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-6 text-sm text-zinc-500">
+          <span>Veradact (beta) · Proof of what your client agreed to.</span>
+          <Link href="/beta" className="underline underline-offset-4 hover:text-zinc-800">
+            Beta &amp; responsible use
+          </Link>
+        </div>
       </footer>
     </div>
   );
