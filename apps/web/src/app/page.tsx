@@ -23,6 +23,7 @@ export default async function HomePage() {
       <header className="border-b border-zinc-200/80 bg-white/90">
         <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3">
           <Wordmark />
+          <Badge tone="violet">Beta</Badge>
           <nav aria-label="Account" className="ml-auto flex items-center gap-2 text-sm">
             <Link href="/login" className={`${buttonClasses(signup ? "secondary" : "primary")} whitespace-nowrap`}>
               Sign in
@@ -42,7 +43,10 @@ export default async function HomePage() {
       <main>
         <section className="mx-auto grid max-w-6xl gap-12 px-4 py-16 sm:py-24 lg:grid-cols-[1.1fr_1fr] lg:items-center">
           <div>
-            <p className="text-sm font-medium text-ink-700">For forward deployed engineers and implementation teams</p>
+            <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-ink-700">
+              <Badge tone="violet">Beta</Badge>
+              For forward deployed engineers and implementation teams
+            </p>
             <h1 className="mt-3 font-display text-5xl font-semibold tracking-tight text-ink-950 sm:text-6xl">Approvals that stick.</h1>
             <p className="mt-6 max-w-xl text-lg text-zinc-700">
               Veradact turns your meeting notes and transcripts into a short list of what the client needs, each item quoting where it
@@ -58,9 +62,37 @@ export default async function HomePage() {
                 Sign in
               </Link>
             </div>
-            <p className="mt-4 text-sm text-zinc-500">Your clients never need an account or a password.</p>
+            <p className="mt-4 text-sm text-zinc-500">
+              Veradact is in beta. Expect rough edges, and tell us what you find. Your clients never need an account or a password.
+            </p>
           </div>
           <ClientPreview />
+        </section>
+
+        <section aria-labelledby="demo" className="mx-auto max-w-6xl px-4 pb-16">
+          <h2 id="demo" className="font-display text-3xl font-semibold text-ink-950">
+            See it in 90 seconds
+          </h2>
+          <p className="mt-2 max-w-2xl text-zinc-600">
+            From notes to a client-confirmed spec your coding agents can read. The demo uses fictional data (Quillfield Labs and Halvorsen
+            Freight).
+          </p>
+          {/* Self-hosted, no autoplay, and nothing is fetched until play (preload="none"), so the page stays light. */}
+          <video
+            className="mt-6 aspect-video w-full rounded-2xl border border-zinc-200/80 bg-zinc-950 shadow-sm"
+            controls
+            playsInline
+            preload="none"
+            poster="/veradact-demo-poster.jpg"
+            aria-label="Veradact product demo"
+          >
+            <source src="/veradact-demo.mp4" type="video/mp4" />
+            Your browser can&rsquo;t play this video.{" "}
+            <a href="/veradact-demo.mp4" className="underline">
+              Download the demo
+            </a>
+            .
+          </video>
         </section>
 
         <section aria-labelledby="why" className="border-y border-zinc-200/80 bg-white">
@@ -130,7 +162,7 @@ export default async function HomePage() {
         <section className="mx-auto max-w-6xl px-4 py-16 text-center">
           <h2 className="font-display text-3xl font-semibold text-ink-950">Start with one engagement.</h2>
           <p className="mx-auto mt-3 max-w-lg text-zinc-600">
-            Bring the notes from your last client call and send the first items for confirmation today.
+            Veradact is in beta. Bring the notes from your last client call and send the first items for confirmation today.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             {signup ? (
@@ -146,7 +178,7 @@ export default async function HomePage() {
       </main>
 
       <footer className="border-t border-zinc-200/80">
-        <div className="mx-auto max-w-6xl px-4 py-6 text-sm text-zinc-500">Veradact · Proof of what your client agreed to.</div>
+        <div className="mx-auto max-w-6xl px-4 py-6 text-sm text-zinc-500">Veradact (beta) · Proof of what your client agreed to.</div>
       </footer>
     </div>
   );
