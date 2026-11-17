@@ -13,6 +13,13 @@ export interface LoadedPrompt {
 }
 
 const DEFAULT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../prompts");
+// After bundling (Next on Vercel), import.meta.url points at a compiled chunk, so DEFAULT_DIR no
+// longer leads to packages/ai/prompts. The traced files keep their repo-relative layout, so also
+// try paths from the working directory (the repo root, or apps/web in a monorepo deployment).
+const FALLBACK_DIRS = [
+  path.resolve(process.cwd(), "packages/ai/prompts"),
+  path.resolve(process.cwd(), "../../packages/ai/prompts"),
+];
 const NAME = /^[a-z][a-z0-9-]*$/;
 const VERSION = /^v[1-9]\d*$/;
 const cache = new Map<string, LoadedPrompt>();
@@ -20,16 +27,23 @@ const cache = new Map<string, LoadedPrompt>();
 /** Load `prompts/<name>.<version>.md`. `dir` overrides the prompts directory (e.g. for bundled deployments). */
 export function loadPrompt(name: string, version: string, options: { dir?: string } = {}): LoadedPrompt {
   if (!NAME.test(name) || !VERSION.test(version)) throw new Error("Invalid prompt name or version");
-  const dir = options.dir ?? DEFAULT_DIR;
-  const file = path.join(dir, `${name}.${version}.md`);
-  const cached = cache.get(file);
-  if (cached) return cached;
-
-  let source: string;
-  try {
-    source = fs.readFileSync(file, "utf8");
-  } catch {
-    throw new Error(`Prompt not found: ${name}.${version}`);
+  const dirs = options.dir ? [options.dir] : [DEFAULT_DIR, ...FALLBACK_DIRS];
+  let file = "";
+  let source: string | undefined;
+  for (const dir of dirs) {
+    file = path.join(dir, `${name}.${version}.md`);
+    const cached = cache.get(file);
+    if (cached) return cached;
+    try {
+      source = fs.readFileSync(file, "utf8");
+      break;
+    } catch {
+      // try the next directory
+    }
+  }
+  if (source === undefined) {
+    // `code` is what logError records; the message names no path or content.
+    throw Object.assign(new Error(`Prompt not found: ${name}.${version}`), { code: "prompt_not_found" });
   }
   const text = source
     .replace(/<!--[\s\S]*?-->/g, "")
